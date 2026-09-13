@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mini Oyunlar — WatchParty</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#08080f;--surface:#111118;--surface2:#1a1a24;--surface3:#22222e;
+      --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+      --text:#f0f0f5;--muted:#6b6b80;--accent:#8b7cf8;--accent-dark:#6c5ce7;
+      --gold:#f5c842;--danger:#ff5f57;--green:#4ade80;--r:12px;--rl:20px;
+    }
+    body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+    .navbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:rgba(17,17,24,0.95);border-bottom:1px solid var(--border2);position:fixed;top:0;left:0;right:0;z-index:100;backdrop-filter:blur(12px)}
+    .nav-logo{font-size:20px;font-weight:700;letter-spacing:-.5px;color:var(--text);text-decoration:none}
+    .nav-logo span{color:var(--accent)}
+    .nav-links{display:flex;gap:4px}
+    .nav-link{padding:7px 16px;border-radius:var(--r);font-size:13px;font-weight:600;color:var(--muted);text-decoration:none;transition:all .2s}
+    .nav-link:hover{background:var(--surface2);color:var(--text)}
+    .nav-link.active{background:rgba(139,124,248,0.15);color:var(--accent)}
+
+    .page{padding:6rem 2rem 3rem;max-width:1000px;margin:0 auto}
+    .page-title{font-size:36px;font-weight:700;letter-spacing:-1.5px;margin-bottom:8px}
+    .page-title span{color:var(--accent)}
+    .page-sub{font-size:15px;color:var(--muted);margin-bottom:2rem}
+
+    /* Oyun grid */
+    .games-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:2rem}
+    .game-card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--rl);padding:1.5rem;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+    .game-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--accent),transparent);opacity:0;transition:opacity .2s}
+    .game-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 12px 40px rgba(139,124,248,0.15)}
+    .game-card:hover::before{opacity:.05}
+    .game-icon{font-size:40px;margin-bottom:12px}
+    .game-name{font-size:18px;font-weight:700;margin-bottom:6px}
+    .game-desc{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:12px}
+    .game-tag{display:inline-flex;padding:3px 10px;background:rgba(139,124,248,0.12);color:var(--accent);border:1px solid rgba(139,124,248,0.25);border-radius:20px;font-size:11px;font-weight:600}
+    .btn-play{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;background:linear-gradient(135deg,var(--accent-dark),var(--accent));border:none;border-radius:var(--r);color:#fff;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;margin-top:8px;transition:opacity .2s}
+    .btn-play:hover{opacity:.85}
+
+    /* Oyun alanı */
+    .game-area{display:none;background:var(--surface);border:1px solid var(--border2);border-radius:var(--rl);padding:2rem;margin-top:1rem}
+    .game-area.active{display:block}
+    .game-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem}
+    .game-title{font-size:20px;font-weight:700}
+    .btn-back{padding:7px 16px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--muted);font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:all .2s}
+    .btn-back:hover{border-color:var(--accent);color:var(--accent)}
+    .score-bar{display:flex;gap:16px;margin-bottom:1.5rem;flex-wrap:wrap}
+    .score-item{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:8px 16px;text-align:center}
+    .score-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+    .score-val{font-size:22px;font-weight:700;color:var(--accent)}
+
+    /* === SNAKE === */
+    #snake-canvas{display:block;margin:0 auto;border-radius:var(--r);border:2px solid var(--border2);background:#0d0d14}
+    .snake-controls{display:flex;justify-content:center;gap:8px;margin-top:12px;flex-wrap:wrap}
+    .btn-game-ctrl{padding:8px 20px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:all .2s}
+    .btn-game-ctrl:hover{border-color:var(--accent);color:var(--accent)}
+    .btn-game-ctrl.primary{background:linear-gradient(135deg,var(--accent-dark),var(--accent));border-color:var(--accent);color:#fff}
+    .dpad{display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,44px);gap:4px;margin:12px auto 0;width:fit-content}
+    .dpad-btn{width:44px;height:44px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;user-select:none}
+    .dpad-btn:hover{background:var(--surface3);border-color:var(--accent)}
+    .dpad-btn:active{background:var(--accent);color:#fff}
+    .dpad-empty{width:44px;height:44px}
+
+    /* === HAFIZA === */
+    .memory-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;max-width:360px;margin:0 auto}
+    .memory-card{aspect-ratio:1;background:var(--surface2);border:2px solid var(--border2);border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer;transition:all .3s;user-select:none;position:relative}
+    .memory-card.flipped{background:var(--surface3);border-color:var(--accent);transform:rotateY(0)}
+    .memory-card.matched{background:rgba(74,222,128,0.12);border-color:var(--green)}
+    .memory-card .front{display:none}
+    .memory-card.flipped .front{display:block}
+    .memory-card.flipped .back{display:none}
+    .memory-card .back{font-size:24px}
+
+    /* === REAKSIYON === */
+    .reaction-area{text-align:center;padding:2rem 0}
+    .reaction-target{width:120px;height:120px;border-radius:50%;background:var(--surface2);border:3px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:48px;margin:0 auto 1.5rem;cursor:pointer;transition:all .15s;user-select:none}
+    .reaction-target:active{transform:scale(.93)}
+    .reaction-target.ready{border-color:var(--green);background:rgba(74,222,128,0.1);animation:reactionPulse .5s infinite alternate}
+    @keyframes reactionPulse{from{box-shadow:0 0 0 0 rgba(74,222,128,0.4)}to{box-shadow:0 0 0 16px rgba(74,222,128,0)}}
+    .reaction-status{font-size:18px;font-weight:600;margin-bottom:1rem;min-height:28px}
+    .reaction-time{font-size:48px;font-weight:700;color:var(--accent);margin-bottom:0.5rem;min-height:60px}
+    .reaction-history{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:1rem}
+    .reaction-badge{padding:4px 12px;background:var(--surface2);border:1px solid var(--border2);border-radius:20px;font-size:13px;font-weight:600}
+
+    /* === MATH === */
+    .math-question{font-size:40px;font-weight:700;text-align:center;color:var(--accent);margin:1rem 0;letter-spacing:2px}
+    .math-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:320px;margin:0 auto}
+    .math-opt{padding:16px;background:var(--surface2);border:2px solid var(--border2);border-radius:var(--r);font-size:20px;font-weight:700;cursor:pointer;text-align:center;transition:all .2s;font-family:'Inter',sans-serif;color:var(--text)}
+    .math-opt:hover{border-color:var(--accent);color:var(--accent)}
+    .math-opt.correct{background:rgba(74,222,128,0.15);border-color:var(--green);color:var(--green)}
+    .math-opt.wrong{background:rgba(255,95,87,0.15);border-color:var(--danger);color:var(--danger)}
+    .math-timer{height:6px;background:var(--surface2);border-radius:3px;margin-bottom:1rem;overflow:hidden}
+    .math-timer-bar{height:100%;background:linear-gradient(90deg,var(--accent-dark),var(--accent));border-radius:3px;transition:width .1s linear}
+
+    /* === YAZIM HIZI === */
+    .typing-text{font-size:16px;line-height:1.8;color:var(--muted);margin-bottom:1rem;padding:16px;background:var(--surface2);border-radius:var(--r);position:relative;max-height:100px;overflow:hidden}
+    .typing-text .correct-char{color:var(--green)}
+    .typing-text .wrong-char{color:var(--danger);text-decoration:underline}
+    .typing-text .cursor-char{border-left:2px solid var(--accent);animation:blink .7s infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+    .typing-input{width:100%;padding:12px 14px;background:var(--surface2);border:2px solid var(--border2);border-radius:var(--r);color:var(--text);font-size:16px;font-family:'Inter',sans-serif;outline:none;resize:none;transition:border-color .2s}
+    .typing-input:focus{border-color:var(--accent)}
+
+    /* Ortak */
+    .game-msg{text-align:center;font-size:16px;font-weight:600;padding:12px;border-radius:var(--r);margin:1rem 0}
+    .game-msg.win{background:rgba(74,222,128,0.12);color:var(--green);border:1px solid rgba(74,222,128,0.3)}
+    .game-msg.lose{background:rgba(255,95,87,0.12);color:var(--danger);border:1px solid rgba(255,95,87,0.3)}
+    .game-msg.info{background:rgba(139,124,248,0.12);color:var(--accent);border:1px solid rgba(139,124,248,0.3)}
+
+    ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+    @media(max-width:600px){.memory-grid{grid-template-columns:repeat(4,1fr);gap:6px}.math-question{font-size:30px}}
+  </style>
+</head>
+<body>
+
+<nav class="navbar">
+  <a href="/" class="nav-logo">Watch<span>Party</span></a>
+  <div class="nav-links">
+    <a href="/" class="nav-link">🎬 WatchParty</a>
+    <a href="/games" class="nav-link active">🎮 Mini Oyunlar</a>
+  </div>
+</nav>
+
+<div class="page">
+  <h1 class="page-title">Mini <span>Oyunlar</span></h1>
+  <p class="page-sub">Bekleme aralarında oynamak için 5 mini oyun</p>
+
+  <!-- OYUN LİSTESİ -->
+  <div class="games-grid" id="games-grid">
+    <div class="game-card" onclick="openGame('snake')">
+      <div class="game-icon">🐍</div>
+      <div class="game-name">Snake</div>
+      <div class="game-desc">Klasik yılan oyunu. Yemi ye, büyü, duvara çarpma!</div>
+      <span class="game-tag">Tek oyuncu</span><br/>
+      <button class="btn-play">▶ Oyna</button>
+    </div>
+    <div class="game-card" onclick="openGame('memory')">
+      <div class="game-icon">🧠</div>
+      <div class="game-name">Hafıza</div>
+      <div class="game-desc">Kartları eşleştir. Aynı emojileri bul!</div>
+      <span class="game-tag">Tek oyuncu</span><br/>
+      <button class="btn-play">▶ Oyna</button>
+    </div>
+    <div class="game-card" onclick="openGame('reaction')">
+      <div class="game-icon">⚡</div>
+      <div class="game-name">Reaksiyon Testi</div>
+      <div class="game-desc">Hedef yeşile dönünce ne kadar hızlı tıklarsın?</div>
+      <span class="game-tag">Refleks</span><br/>
+      <button class="btn-play">▶ Oyna</button>
+    </div>
+    <div class="game-card" onclick="openGame('math')">
+      <div class="game-icon">🔢</div>
+      <div class="game-name">Hızlı Matematik</div>
+      <div class="game-desc">Süre dolmadan doğru cevabı bul! Her doğru +10 puan.</div>
+      <span class="game-tag">Matematik</span><br/>
+      <button class="btn-play">▶ Oyna</button>
+    </div>
+    <div class="game-card" onclick="openGame('typing')">
+      <div class="game-icon">⌨️</div>
+      <div class="game-name">Yazım Hızı</div>
+      <div class="game-desc">Verilen metni ne kadar hızlı ve doğru yazarsın?</div>
+      <span class="game-tag">Hız</span><br/>
+      <button class="btn-play">▶ Oyna</button>
+    </div>
+  </div>
+
+  <!-- SNAKE -->
+  <div class="game-area" id="game-snake">
+    <div class="game-header">
+      <div class="game-title">🐍 Snake</div>
+      <button class="btn-back" onclick="closeGame()">← Geri</button>
+    </div>
+    <div class="score-bar">
+      <div class="score-item"><div class="score-label">Puan</div><div class="score-val" id="snake-score">0</div></div>
+      <div class="score-item"><div class="score-label">En Yüksek</div><div class="score-val" id="snake-best">0</div></div>
+      <div class="score-item"><div class="score-label">Seviye</div><div class="score-val" id="snake-level">1</div></div>
+    </div>
+    <canvas id="snake-canvas" width="360" height="360"></canvas>
+    <div class="snake-controls">
+      <button class="btn-game-ctrl primary" id="snake-start-btn" onclick="snakeStart()">▶ Başla</button>
+      <button class="btn-game-ctrl" onclick="snakeReset()">↺ Sıfırla</button>
+    </div>
+    <div class="dpad">
+      <div class="dpad-empty"></div>
+      <button class="dpad-btn" onclick="snakeDir(0,-1)">▲</button>
+      <div class="dpad-empty"></div>
+      <button class="dpad-btn" onclick="snakeDir(-1,0)">◀</button>
+      <div class="dpad-empty"></div>
+      <button class="dpad-btn" onclick="snakeDir(1,0)">▶</button>
+      <div class="dpad-empty"></div>
+      <button class="dpad-btn" onclick="snakeDir(0,1)">▼</button>
+      <div class="dpad-empty"></div>
+    </div>
+    <div id="snake-msg" class="game-msg" style="display:none"></div>
+  </div>
+
+  <!-- HAFIZA -->
+  <div class="game-area" id="game-memory">
+    <div class="game-header">
+      <div class="game-title">🧠 Hafıza</div>
+      <button class="btn-back" onclick="closeGame()">← Geri</button>
+    </div>
+    <div class="score-bar">
+      <div class="score-item"><div class="score-label">Hamle</div><div class="score-val" id="mem-moves">0</div></div>
+      <div class="score-item"><div class="score-label">Eşleşme</div><div class="score-val" id="mem-matches">0/8</div></div>
+      <div class="score-item"><div class="score-label">Süre</div><div class="score-val" id="mem-time">0s</div></div>
+    </div>
+    <div class="memory-grid" id="memory-grid"></div>
+    <div style="text-align:center;margin-top:1rem">
+      <button class="btn-game-ctrl primary" onclick="memoryStart()">↺ Yeni Oyun</button>
+    </div>
+    <div id="memory-msg" class="game-msg" style="display:none"></div>
+  </div>
+
+  <!-- REAKSİYON -->
+  <div class="game-area" id="game-reaction">
+    <div class="game-header">
+      <div class="game-title">⚡ Reaksiyon Testi</div>
+      <button class="btn-back" onclick="closeGame()">← Geri</button>
+    </div>
+    <div class="score-bar">
+      <div class="score-item"><div class="score-label">En İyi</div><div class="score-val" id="react-best">—</div></div>
+      <div class="score-item"><div class="score-label">Ortalama</div><div class="score-val" id="react-avg">—</div></div>
+      <div class="score-item"><div class="score-label">Deneme</div><div class="score-val" id="react-count">0</div></div>
+    </div>
+    <div class="reaction-area">
+      <div class="reaction-target" id="reaction-target" onclick="reactionClick()">🎯</div>
+      <div class="reaction-status" id="reaction-status">Başlamak için tıkla</div>
+      <div class="reaction-time" id="reaction-time"></div>
+      <div class="reaction-history" id="reaction-history"></div>
+    </div>
+  </div>
+
+  <!-- MATEMATİK -->
+  <div class="game-area" id="game-math">
+    <div class="game-header">
+      <div class="game-title">🔢 Hızlı Matematik</div>
+      <button class="btn-back" onclick="closeGame()">← Geri</button>
+    </div>
+    <div class="score-bar">
+      <div class="score-item"><div class="score-label">Puan</div><div class="score-val" id="math-score">0</div></div>
+      <div class="score-item"><div class="score-label">En Yüksek</div><div class="score-val" id="math-best">0</div></div>
+      <div class="score-item"><div class="score-label">Seri</div><div class="score-val" id="math-streak">0</div></div>
+    </div>
+    <div class="math-timer"><div class="math-timer-bar" id="math-timer-bar" style="width:100%"></div></div>
+    <div class="math-question" id="math-question">?</div>
+    <div class="math-options" id="math-options"></div>
+    <div style="text-align:center;margin-top:1rem">
+      <button class="btn-game-ctrl primary" id="math-start-btn" onclick="mathStart()">▶ Başla</button>
+    </div>
+    <div id="math-msg" class="game-msg" style="display:none"></div>
+  </div>
+
+  <!-- YAZIM HIZI -->
+  <div class="game-area" id="game-typing">
+    <div class="game-header">
+      <div class="game-title">⌨️ Yazım Hızı</div>
+      <button class="btn-back" onclick="closeGame()">← Geri</button>
+    </div>
+    <div class="score-bar">
+      <div class="score-item"><div class="score-label">WPM</div><div class="score-val" id="type-wpm">0</div></div>
+      <div class="score-item"><div class="score-label">Doğruluk</div><div class="score-val" id="type-acc">100%</div></div>
+      <div class="score-item"><div class="score-label">Süre</div><div class="score-val" id="type-time">60s</div></div>
+      <div class="score-item"><div class="score-label">En İyi WPM</div><div class="score-val" id="type-best">0</div></div>
+    </div>
+    <div class="typing-text" id="typing-display"></div>
+    <textarea class="typing-input" id="typing-input" placeholder="Yazmaya başla..." rows="2" oninput="typingInput()"></textarea>
+    <div style="text-align:center;margin-top:1rem">
+      <button class="btn-game-ctrl primary" onclick="typingStart()">↺ Yeni Metin</button>
+    </div>
+    <div id="typing-msg" class="game-msg" style="display:none"></div>
+  </div>
+
+</div>
+
+<script>
+// ——— NAVİGASYON ———
+function openGame(id) {
+  document.getElementById('games-grid').style.display = 'none';
+  document.querySelectorAll('.game-area').forEach(a => a.classList.remove('active'));
+  document.getElementById('game-' + id).classList.add('active');
+  if (id === 'snake') snakeInit();
+  if (id === 'memory') memoryStart();
+  if (id === 'reaction') reactionInit();
+  if (id === 'math') mathInit();
+  if (id === 'typing') typingStart();
+}
+
+function closeGame() {
+  snakeStop();
+  clearInterval(memTimer);
+  clearTimeout(reactTimer);
+  clearInterval(mathTimerInt);
+  clearInterval(typeTimer);
+  document.querySelectorAll('.game-area').forEach(a => a.classList.remove('active'));
+  document.getElementById('games-grid').style.display = 'grid';
+}
+
+// ——— SNAKE ———
+const CELL = 20, COLS = 18, ROWS = 18;
+let snake, food, dir, nextDir, snakeRunning, snakeInterval, snakeScore, snakeBest = 0;
+
+function snakeInit() {
+  const canvas = document.getElementById('snake-canvas');
+  canvas.width = COLS * CELL; canvas.height = ROWS * CELL;
+  snakeReset();
+}
+
+function snakeReset() {
+  snakeStop();
+  snake = [{x:9,y:9},{x:8,y:9},{x:7,y:9}];
+  dir = {x:1,y:0}; nextDir = {x:1,y:0};
+  snakeScore = 0;
+  document.getElementById('snake-score').textContent = '0';
+  document.getElementById('snake-level').textContent = '1';
+  document.getElementById('snake-msg').style.display = 'none';
+  spawnFood();
+  snakeDraw();
+}
+
+function snakeStart() {
+  if (snakeRunning) return;
+  snakeRunning = true;
+  document.getElementById('snake-start-btn').textContent = '⏸ Duraklat';
+  document.getElementById('snake-start-btn').onclick = snakePause;
+  const speed = Math.max(80, 200 - (Math.floor(snakeScore/50)*10));
+  snakeInterval = setInterval(snakeStep, speed);
+}
+
+function snakePause() {
+  snakeStop();
+  document.getElementById('snake-start-btn').textContent = '▶ Devam';
+  document.getElementById('snake-start-btn').onclick = snakeStart;
+}
+
+function snakeStop() {
+  snakeRunning = false;
+  clearInterval(snakeInterval);
+}
+
+function snakeStep() {
+  dir = nextDir;
+  const head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+  if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS || snake.some(s => s.x === head.x && s.y === head.y)) {
+    snakeGameOver(); return;
+  }
+  snake.unshift(head);
+  if (head.x === food.x && head.y === food.y) {
+    snakeScore += 10;
+    document.getElementById('snake-score').textContent = snakeScore;
+    document.getElementById('snake-level').textContent = Math.floor(snakeScore/50)+1;
+    if (snakeScore > snakeBest) { snakeBest = snakeScore; document.getElementById('snake-best').textContent = snakeBest; }
+    spawnFood();
+    clearInterval(snakeInterval);
+    snakeInterval = setInterval(snakeStep, Math.max(80, 200 - (Math.floor(snakeScore/50)*10)));
+  } else { snake.pop(); }
+  snakeDraw();
+}
+
+function snakeDir(x, y) {
+  if (x === 1 && dir.x === -1) return;
+  if (x === -1 && dir.x === 1) return;
+  if (y === 1 && dir.y === -1) return;
+  if (y === -1 && dir.y === 1) return;
+  nextDir = {x,y};
+  if (!snakeRunning) snakeStart();
+}
+
+function spawnFood() {
+  do { food = {x:Math.floor(Math.random()*COLS), y:Math.floor(Math.random()*ROWS)}; }
+  while (snake.some(s => s.x === food.x && s.y === food.y));
+}
+
+function snakeDraw() {
+  const canvas = document.getElementById('snake-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#0d0d14'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  for (let x=0;x<COLS;x++) { ctx.beginPath(); ctx.moveTo(x*CELL,0); ctx.lineTo(x*CELL,canvas.height); ctx.stroke(); }
+  for (let y=0;y<ROWS;y++) { ctx.beginPath(); ctx.moveTo(0,y*CELL); ctx.lineTo(canvas.width,y*CELL); ctx.stroke(); }
+  // Food
+  ctx.fillStyle = '#ff5f57'; ctx.shadowColor = '#ff5f57'; ctx.shadowBlur = 10;
+  ctx.beginPath(); ctx.arc(food.x*CELL+CELL/2, food.y*CELL+CELL/2, CELL/2-2, 0, Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0;
+  // Snake
+  snake.forEach((s, i) => {
+    const t = i/snake.length;
+    ctx.fillStyle = i===0 ? '#8b7cf8' : `rgba(139,124,248,${1-t*0.6})`;
+    ctx.shadowColor = i===0 ? '#8b7cf8' : 'transparent'; ctx.shadowBlur = i===0 ? 8 : 0;
+    ctx.beginPath();
+    const r = i===0 ? CELL/2-1 : CELL/2-2;
+    ctx.roundRect(s.x*CELL+2, s.y*CELL+2, CELL-4, CELL-4, r);
+    ctx.fill(); ctx.shadowBlur=0;
+  });
+}
+
+function snakeGameOver() {
+  snakeStop();
+  const msg = document.getElementById('snake-msg');
+  msg.textContent = `💀 Oyun Bitti! Puanın: ${snakeScore}`; msg.className = 'game-msg lose'; msg.style.display = 'block';
+  document.getElementById('snake-start-btn').textContent = '▶ Başla'; document.getElementById('snake-start-btn').onclick = function(){snakeReset();snakeStart();};
+}
+
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('game-snake').classList.contains('active')) return;
+  const dirs = { ArrowUp:{x:0,y:-1}, ArrowDown:{x:0,y:1}, ArrowLeft:{x:-1,y:0}, ArrowRight:{x:1,y:0} };
+  if (dirs[e.key]) { e.preventDefault(); snakeDir(dirs[e.key].x, dirs[e.key].y); }
+  if (e.key === ' ') { e.preventDefault(); snakeRunning ? snakePause() : snakeStart(); }
+});
+
+// ——— HAFIZA ———
+const MEM_EMOJIS = ['🎬','🎮','🎵','🎨','🚀','⚡','🔥','💎'];
+let memCards=[], memFlipped=[], memMatched=0, memMoves=0, memTimer, memStart, memTime=0, memLocked=false;
+
+function memoryStart() {
+  clearInterval(memTimer); memFlipped=[]; memMatched=0; memMoves=0; memTime=0; memLocked=false;
+  document.getElementById('mem-moves').textContent='0';
+  document.getElementById('mem-matches').textContent='0/8';
+  document.getElementById('mem-time').textContent='0s';
+  document.getElementById('memory-msg').style.display='none';
+  const emojis = [...MEM_EMOJIS,...MEM_EMOJIS].sort(()=>Math.random()-.5);
+  const grid = document.getElementById('memory-grid');
+  grid.innerHTML='';
+  memCards=[];
+  emojis.forEach((e,i)=>{
+    const card = document.createElement('div');
+    card.className='memory-card';
+    card.innerHTML=`<span class="back">❓</span><span class="front">${e}</span>`;
+    card.dataset.emoji=e; card.dataset.idx=i;
+    card.onclick=()=>memFlip(card);
+    grid.appendChild(card); memCards.push(card);
+  });
+  memStart=Date.now();
+  memTimer=setInterval(()=>{memTime=Math.floor((Date.now()-memStart)/1000);document.getElementById('mem-time').textContent=memTime+'s';},1000);
+}
+
+function memFlip(card) {
+  if (memLocked||card.classList.contains('flipped')||card.classList.contains('matched')) return;
+  card.classList.add('flipped'); memFlipped.push(card);
+  if (memFlipped.length===2) {
+    memMoves++; document.getElementById('mem-moves').textContent=memMoves; memLocked=true;
+    if (memFlipped[0].dataset.emoji===memFlipped[1].dataset.emoji) {
+      memFlipped.forEach(c=>c.classList.add('matched')); memFlipped=[]; memMatched++; memLocked=false;
+      document.getElementById('mem-matches').textContent=memMatched+'/8';
+      if (memMatched===8) { clearInterval(memTimer); const msg=document.getElementById('memory-msg'); msg.textContent=`🎉 Tebrikler! ${memTime}s, ${memMoves} hamle`; msg.className='game-msg win'; msg.style.display='block'; }
+    } else {
+      setTimeout(()=>{ memFlipped.forEach(c=>c.classList.remove('flipped')); memFlipped=[]; memLocked=false; },900);
+    }
+  }
+}
+
+// ——— REAKSİYON ———
+let reactState='idle', reactTimer, reactTimes=[], reactBest=null;
+
+function reactionInit() { reactState='idle'; reactTimes=[]; reactBest=null; document.getElementById('react-best').textContent='—'; document.getElementById('react-avg').textContent='—'; document.getElementById('react-count').textContent='0'; document.getElementById('reaction-history').innerHTML=''; }
+
+function reactionClick() {
+  const target=document.getElementById('reaction-target');
+  const status=document.getElementById('reaction-status');
+  const timeEl=document.getElementById('reaction-time');
+  if (reactState==='idle') {
+    reactState='waiting'; target.style.opacity='.5'; target.textContent='⏳'; status.textContent='Bekle...'; timeEl.textContent='';
+    const delay=1500+Math.random()*3000;
+    reactTimer=setTimeout(()=>{ reactState='ready'; target.classList.add('ready'); target.textContent='🟢'; status.textContent='ŞİMDİ!'; target.style.opacity='1'; window._reactStart=Date.now(); },delay);
+  } else if (reactState==='waiting') {
+    clearTimeout(reactTimer); reactState='idle'; target.style.opacity='1'; target.textContent='🎯'; target.classList.remove('ready'); status.textContent='Çok erken! Tekrar tıkla'; timeEl.textContent='';
+  } else if (reactState==='ready') {
+    const ms=Date.now()-window._reactStart;
+    reactTimes.push(ms); reactState='idle'; target.classList.remove('ready'); target.textContent='🎯'; target.style.opacity='1';
+    status.textContent='Tekrar tıkla';
+    timeEl.textContent=ms+'ms';
+    if (!reactBest||ms<reactBest) { reactBest=ms; document.getElementById('react-best').textContent=ms+'ms'; }
+    const avg=Math.round(reactTimes.reduce((a,b)=>a+b,0)/reactTimes.length);
+    document.getElementById('react-avg').textContent=avg+'ms';
+    document.getElementById('react-count').textContent=reactTimes.length;
+    const badge=document.createElement('span');
+    badge.className='reaction-badge'; badge.style.color=ms<200?'var(--green)':ms<300?'var(--gold)':'var(--muted)';
+    badge.textContent=ms+'ms'; document.getElementById('reaction-history').prepend(badge);
+  }
+}
+
+// ——— MATEMATİK ———
+let mathScore=0, mathBest=0, mathStreak=0, mathTimerInt, mathTimeLeft, mathActive=false, mathCorrect;
+
+function mathInit() { mathScore=0; mathStreak=0; document.getElementById('math-score').textContent='0'; document.getElementById('math-streak').textContent='0'; document.getElementById('math-msg').style.display='none'; document.getElementById('math-question').textContent='?'; document.getElementById('math-options').innerHTML=''; }
+
+function mathStart() {
+  mathScore=0; mathStreak=0; mathActive=true;
+  document.getElementById('math-score').textContent='0'; document.getElementById('math-streak').textContent='0'; document.getElementById('math-msg').style.display='none'; document.getElementById('math-start-btn').style.display='none';
+  mathNext();
+}
+
+function mathNext() {
+  clearInterval(mathTimerInt); mathTimeLeft=100;
+  document.getElementById('math-timer-bar').style.width='100%';
+  const ops=['+','-','×']; const op=ops[Math.floor(Math.random()*ops.length)];
+  let a,b;
+  if (op==='+'){a=Math.floor(Math.random()*50)+1;b=Math.floor(Math.random()*50)+1;mathCorrect=a+b;}
+  else if (op==='-'){a=Math.floor(Math.random()*50)+10;b=Math.floor(Math.random()*a)+1;mathCorrect=a-b;}
+  else{a=Math.floor(Math.random()*12)+1;b=Math.floor(Math.random()*12)+1;mathCorrect=a*b;}
+  document.getElementById('math-question').textContent=`${a} ${op} ${b} = ?`;
+  const wrongs=new Set([mathCorrect]);
+  while(wrongs.size<4){wrongs.add(mathCorrect+Math.floor(Math.random()*20)-10||mathCorrect+1);}
+  const opts=[...wrongs].sort(()=>Math.random()-.5);
+  const optDiv=document.getElementById('math-options'); optDiv.innerHTML='';
+  opts.forEach(o=>{const btn=document.createElement('button');btn.className='math-opt';btn.textContent=o;btn.onclick=()=>mathAnswer(o,btn);optDiv.appendChild(btn);});
+  mathTimerInt=setInterval(()=>{mathTimeLeft--;document.getElementById('math-timer-bar').style.width=mathTimeLeft+'%';if(mathTimeLeft<=0){clearInterval(mathTimerInt);mathAnswer(null,null);}},100);
+}
+
+function mathAnswer(val, btn) {
+  clearInterval(mathTimerInt);
+  document.querySelectorAll('.math-opt').forEach(b=>{b.onclick=null;if(parseInt(b.textContent)===mathCorrect)b.classList.add('correct');});
+  if (val===mathCorrect) {
+    mathStreak++; mathScore+=10*(mathStreak>2?2:1);
+    document.getElementById('math-score').textContent=mathScore; document.getElementById('math-streak').textContent=mathStreak;
+    if(mathScore>mathBest){mathBest=mathScore;document.getElementById('math-best').textContent=mathBest;}
+    if(btn)btn.classList.add('correct');
+    setTimeout(mathNext,800);
+  } else {
+    if(btn)btn.classList.add('wrong'); mathStreak=0; document.getElementById('math-streak').textContent='0';
+    const msg=document.getElementById('math-msg');msg.textContent=`Yanlış! Doğru cevap: ${mathCorrect}. Toplam puan: ${mathScore}`;msg.className='game-msg lose';msg.style.display='block';
+    document.getElementById('math-start-btn').style.display='inline-flex';document.getElementById('math-start-btn').textContent='↺ Tekrar';
+    mathActive=false;
+  }
+}
+
+// ——— YAZIM HIZI ———
+const TYPING_TEXTS = [
+  'Hayat kısa, sanat uzundur. Her anı güzel yaşamaya bak.',
+  'Başarı tesadüf değil, azim ve çalışmanın ürünüdür.',
+  'Bilgisayarlar insanların hayatını kolaylaştırmak için icat edildi.',
+  'Okumak insanı zenginleştirir, yazmak ise netleştirir düşünceyi.',
+  'Her büyük yolculuk küçük bir adımla başlar. İlk adımı atmaktan korkma.'
+];
+let typingText='', typingPos=0, typeTimerInt, typeTimeLeft=60, typeStarted=false, typeBest=0;
+
+function typingStart() {
+  clearInterval(typeTimerInt); typingPos=0; typeStarted=false; typeTimeLeft=60;
+  typingText=TYPING_TEXTS[Math.floor(Math.random()*TYPING_TEXTS.length)];
+  document.getElementById('typing-input').value=''; document.getElementById('typing-input').disabled=false;
+  document.getElementById('type-wpm').textContent='0'; document.getElementById('type-acc').textContent='100%'; document.getElementById('type-time').textContent='60s';
+  document.getElementById('typing-msg').style.display='none';
+  renderTypingDisplay('');
+  document.getElementById('typing-input').focus();
+}
+
+function renderTypingDisplay(typed) {
+  const el=document.getElementById('typing-display'); let html='';
+  for(let i=0;i<typingText.length;i++){
+    if(i<typed.length){html+=`<span class="${typed[i]===typingText[i]?'correct-char':'wrong-char'}">${typingText[i]}</span>`;}
+    else if(i===typed.length){html+=`<span class="cursor-char">${typingText[i]}</span>`;}
+    else{html+=typingText[i];}
+  }
+  el.innerHTML=html;
+}
+
+function typingInput() {
+  const inp=document.getElementById('typing-input'); const typed=inp.value;
+  if(!typeStarted&&typed.length>0){
+    typeStarted=true;
+    typeTimerInt=setInterval(()=>{
+      typeTimeLeft--;document.getElementById('type-time').textContent=typeTimeLeft+'s';
+      const words=typed.trim().split(' ').length;const wpm=Math.round(words/(60-typeTimeLeft+1)*60);
+      document.getElementById('type-wpm').textContent=wpm;
+      if(typeTimeLeft<=0){clearInterval(typeTimerInt);typingEnd(typed);}
+    },1000);
+  }
+  renderTypingDisplay(typed);
+  let correct=0;for(let i=0;i<typed.length;i++){if(typed[i]===typingText[i])correct++;}
+  const acc=typed.length?Math.round(correct/typed.length*100):100;
+  document.getElementById('type-acc').textContent=acc+'%';
+  if(typed===typingText){clearInterval(typeTimerInt);typingEnd(typed);}
+}
+
+function typingEnd(typed) {
+  document.getElementById('typing-input').disabled=true;
+  const words=typed.trim().split(' ').length; const elapsed=Math.max(1,60-typeTimeLeft);
+  const wpm=Math.round(words/elapsed*60);
+  let correct=0;for(let i=0;i<typed.length;i++){if(i<typingText.length&&typed[i]===typingText[i])correct++;}
+  const acc=typed.length?Math.round(correct/typed.length*100):0;
+  document.getElementById('type-wpm').textContent=wpm;
+  document.getElementById('type-acc').textContent=acc+'%';
+  if(wpm>typeBest){typeBest=wpm;document.getElementById('type-best').textContent=wpm;}
+  const msg=document.getElementById('typing-msg');
+  msg.textContent=`✅ Bitti! ${wpm} WPM, ${acc}% doğruluk`;msg.className='game-msg win';msg.style.display='block';
+}
+</script>
+</body>
+</html>
