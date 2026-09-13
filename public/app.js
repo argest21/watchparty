@@ -109,7 +109,7 @@ function renderMembers(members) {
     const initials = m.username.slice(0, 2).toUpperCase();
     div.innerHTML = `
       <div class="avatar ${m.isHost ? 'host' : ''}">${initials}</div>
-      <span>${esc(m.username)}</span>
+      <span>${esc(m.username)}${m.isHost ? ' <span style="color:var(--text-muted);font-size:12px">(oda sahibi)</span>' : ''}</span>
     `;
     el.appendChild(div);
   });
