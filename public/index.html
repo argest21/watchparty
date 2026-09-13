@@ -1,1 +1,117 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WatchParty</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css" />
+</head>
+<body>
 
+  <!-- ANA EKRAN -->
+  <div id="screen-home" class="screen active">
+    <div class="home-box">
+      <div class="logo">Watch<span>Party</span></div>
+      <p class="subtitle">Arkadaşlarınla birlikte video izle</p>
+
+      <div class="field">
+        <label>Kullanıcı adın</label>
+        <input id="home-username" type="text" placeholder="Adını gir" maxlength="20" />
+        <span class="err" id="err-username">Kullanıcı adı gerekli</span>
+      </div>
+
+      <button class="btn primary" onclick="createRoom()">
+        <i class="ti ti-plus"></i> Yeni oda oluştur
+      </button>
+
+      <div class="divider">veya</div>
+
+      <div class="field">
+        <label>Oda kodu</label>
+        <input id="home-code" type="text" placeholder="6 haneli kod" maxlength="6" />
+        <span class="err" id="err-code">Geçerli bir oda kodu gir</span>
+      </div>
+
+      <button class="btn" onclick="joinRoom()">
+        <i class="ti ti-door-enter"></i> Odaya katıl
+      </button>
+
+      <div class="err" id="err-server"></div>
+    </div>
+  </div>
+
+  <!-- ODA EKRANI -->
+  <div id="screen-room" class="screen">
+
+    <div class="topbar">
+      <div class="topbar-left">
+        <span class="logo sm">Watch<span>Party</span></span>
+        <span class="badge accent" id="badge-username"></span>
+        <span class="badge host" id="badge-host" style="display:none">
+          <i class="ti ti-crown"></i> Oda sahibi
+        </span>
+      </div>
+      <div class="topbar-right">
+        <span class="badge code" id="badge-code" onclick="copyCode()" title="Kodu kopyala"></span>
+        <button class="btn sm danger" onclick="leaveRoom()">
+          <i class="ti ti-door-exit"></i> Çık
+        </button>
+      </div>
+    </div>
+
+    <div class="room-body">
+
+      <div class="main-col">
+        <div class="video-wrap" id="video-wrap">
+          <div class="video-placeholder" id="video-placeholder">
+            <i class="ti ti-player-play"></i>
+            <p id="placeholder-text">Oda sahibi video seçmedi</p>
+          </div>
+          <iframe id="yt-frame" allow="autoplay; encrypted-media" allowfullscreen style="display:none"></iframe>
+          <video id="mp4-player" controls style="display:none"></video>
+        </div>
+
+        <div class="host-controls" id="host-controls" style="display:none">
+          <input id="video-url" type="text" placeholder="YouTube veya MP4 linki yapıştır..." />
+          <button class="btn primary sm" onclick="loadVideo()">
+            <i class="ti ti-player-play"></i> Oynat
+          </button>
+          <span class="err" id="err-video"></span>
+        </div>
+
+        <div class="sync-bar" id="sync-bar" style="display:none">
+          <span class="dot"></span>
+          <span id="sync-text">Oda sahibi video başlattığında senkronize edilecek</span>
+        </div>
+      </div>
+
+      <div class="side-col">
+        <div class="panel">
+          <div class="panel-title">
+            <i class="ti ti-users"></i> Odadakiler
+            (<span id="member-count">0</span>)
+          </div>
+          <div class="members" id="members-list"></div>
+        </div>
+
+        <div class="panel chat-panel">
+          <div class="panel-title"><i class="ti ti-message"></i> Sohbet</div>
+          <div class="chat-messages" id="chat-messages"></div>
+          <div class="chat-input-row">
+            <input id="chat-input" type="text" placeholder="Mesaj yaz..." maxlength="200"
+              onkeydown="if(event.key==='Enter') sendChat()" />
+            <button onclick="sendChat()"><i class="ti ti-send"></i></button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
