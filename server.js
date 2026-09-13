@@ -18,6 +18,7 @@ function genCode() {
 }
 
 io.on('connection', (socket) => {
+
   socket.on('create-room', ({ username }) => {
     const code = genCode();
     rooms[code] = {
@@ -87,6 +88,24 @@ io.on('connection', (socket) => {
     socket.to(code).emit('video-seek', { currentTime });
   });
 
+  socket.on('kick-member', ({ targetId }) => {
+    const code = socket.roomCode;
+    if (!rooms[code] || rooms[code].host !== socket.id) return;
+    if (targetId === socket.id) return;
+    const target = rooms[code].members.find(m => m.id === targetId);
+    if (!target) return;
+    rooms[code].members = rooms[code].members.filter(m => m.id !== targetId);
+    io.to(targetId).emit('kicked');
+    io.to(code).emit('member-left', {
+      username: target.username,
+      members: rooms[code].members
+    });
+    io.to(code).emit('chat-msg', {
+      username: '🔴 Sistem',
+      msg: target.username + ' odadan atıldı'
+    });
+  });
+
   socket.on('chat-msg', ({ msg }) => {
     const code = socket.roomCode;
     if (!rooms[code]) return;
@@ -106,6 +125,7 @@ io.on('connection', (socket) => {
     }
     io.to(code).emit('member-left', { username: socket.username, members: rooms[code].members });
   });
+
 });
 
 const PORT = process.env.PORT || 3000;
