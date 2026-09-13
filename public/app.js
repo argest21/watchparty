@@ -111,6 +111,11 @@ socket.on('video-seek', ({ currentTime }) => {
   }
 });
 
+socket.on('kicked', () => {
+  showToast('❌ Oda sahibi tarafından atıldın!');
+  setTimeout(() => location.reload(), 2000);
+});
+
 socket.on('chat-msg', ({ username, msg }) => {
   addMsg(username, msg);
 });
@@ -148,15 +153,24 @@ function renderMembers(members) {
     const div = document.createElement('div');
     div.className = 'member-item';
     const initials = m.username.slice(0, 2).toUpperCase();
+    const isMe = m.username === state.username;
     div.innerHTML = `
       <div class="avatar ${m.isHost ? 'host' : ''}">${initials}</div>
-      <div>
-        <div class="member-name">${esc(m.username)}</div>
-        ${m.isHost ? '<div class="member-tag">Oda Sahibi</div>' : ''}
+      <div style="flex:1;min-width:0">
+        <div class="member-name">${esc(m.username)}${isMe ? ' <span style="color:var(--muted);font-size:11px">(sen)</span>' : ''}</div>
+        ${m.isHost ? '<div class="member-tag">👑 Oda Sahibi</div>' : ''}
       </div>
+      ${state.isHost && !isMe && !m.isHost ? `<button class="kick-btn" onclick="kickMember('${m.id}', '${esc(m.username)}')">At</button>` : ''}
     `;
     el.appendChild(div);
   });
+}
+
+// ——— KİCK ———
+
+function kickMember(targetId, username) {
+  if (!confirm(username + ' kişisini odadan atmak istiyor musun?')) return;
+  socket.emit('kick-member', { targetId });
 }
 
 // ——— VİDEO ———
@@ -196,7 +210,6 @@ function renderVideo(url) {
 function attachMp4Events(mp4) {
   if (mp4._eventsAttached) return;
   mp4._eventsAttached = true;
-
   mp4.addEventListener('play', () => {
     if (!state.isHost || mp4Syncing) return;
     socket.emit('video-play', { currentTime: mp4.currentTime });
