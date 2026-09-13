@@ -249,4 +249,62 @@ io.on('connection', (socket) => {
     const word = WORDS[Math.floor(Math.random() * WORDS.length)];
     rooms[code].game = { word, hints: Math.floor(word.length/2), guesses: [], active: true };
     io.to(code).emit('game-started', { masked: '_ '.repeat(word.length).trim(), length: word.length, hints: rooms[code].game.hints });
-    io.to(code).emit('chat-msg', { id: Date.now(), username: '🎮 Oyun', msg: `Kelime tahmin başladı! ${word.length}
+    io.to(code).emit('chat-msg', { id: Date.now(), username: '🎮 Oyun', msg: `Kelime tahmin başladı! ${word.length} harfli`, sys: true });
+  });
+  socket.on('game-guess', ({ guess }) => {
+    const code = socket.roomCode;
+    if (!rooms[code]?.game?.active) return;
+    const game = rooms[code].game;
+    guess = guess.toLowerCase().trim();
+    if (game.guesses.includes(guess)) { socket.emit('error-msg', 'Zaten denediniz!'); return; }
+    game.guesses.push(guess);
+    if (guess === game.word) {
+      game.active = false;
+      io.to(code).emit('game-won', { winner: socket.username, word: game.word });
+      io.to(code).emit('chat-msg', { id: Date.now(), username: '🎮 Oyun', msg: `🎉 ${socket.username} kazandı! Kelime: ${game.word}`, sys: true });
+    } else {
+      io.to(code).emit('chat-msg', { id: Date.now(), username: '🎮 Oyun', msg: `${socket.username} "${guess}" denedi — yanlış!`, sys: true });
+    }
+  });
+  socket.on('game-hint', () => {
+    const code = socket.roomCode;
+    if (!rooms[code]?.game?.active) return;
+    const game = rooms[code].game;
+    if (game.hints <= 0) { socket.emit('error-msg', 'İpucu kalmadı!'); return; }
+    game.hints--;
+    const word = game.word;
+    const idx = [...Array(word.length).keys()].filter(i => !game.guesses.includes(word[i]));
+    if (idx.length > 0) {
+      const i = idx[Math.floor(Math.random()*idx.length)];
+      game.guesses.push(word[i]);
+      const masked = word.split('').map(c => game.guesses.includes(c) ? c : '_').join(' ');
+      io.to(code).emit('game-update', { masked, hints: game.hints });
+      io.to(code).emit('chat-msg', { id: Date.now(), username: '💡 İpucu', msg: `${i+1}. harf: "${word[i].toUpperCase()}"`, sys: true });
+    }
+  });
+  socket.on('game-stop', () => {
+    const code = socket.roomCode;
+    if (!rooms[code] || !isModOrHost(rooms[code], socket.id)) return;
+    const word = rooms[code].game?.word;
+    rooms[code].game = null;
+    io.to(code).emit('game-ended', { word });
+    io.to(code).emit('chat-msg', { id: Date.now(), username: '🎮 Oyun', msg: `Oyun bitti. Kelime: ${word}`, sys: true });
+  });
+  socket.on('disconnect', () => {
+    const code = socket.roomCode;
+    if (!code || !rooms[code]) return;
+    rooms[code].members = rooms[code].members.filter(m => m.id !== socket.id);
+    if (rooms[code].members.length === 0) { delete rooms[code]; delete bans[code]; broadcastLobbies(); return; }
+    if (rooms[code].host === socket.id) {
+      const n = rooms[code].members[0];
+      rooms[code].host = n.id; n.isHost = true;
+      io.to(n.id).emit('you-are-host');
+      io.to(code).emit('host-changed', { newHost: n.username, members: rooms[code].members });
+    }
+    io.to(code).emit('member-left', { username: socket.username, members: rooms[code].members });
+    broadcastLobbies();
+  });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log('WatchParty — port: ' + PORT));
