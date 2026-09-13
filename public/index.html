@@ -18,11 +18,20 @@
     body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background .3s}
     .screen{display:none!important}.screen.active{display:flex!important}
 
+    /* NAVBAR */
+    .navbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:rgba(17,17,24,0.95);border-bottom:1px solid var(--border2);position:fixed;top:0;left:0;right:0;z-index:200;backdrop-filter:blur(12px)}
+    .nav-logo{font-size:20px;font-weight:700;letter-spacing:-.5px;color:var(--text);text-decoration:none}
+    .nav-logo span{color:var(--accent)}
+    .nav-links{display:flex;gap:4px}
+    .nav-link{padding:7px 16px;border-radius:var(--r);font-size:13px;font-weight:600;color:var(--muted);text-decoration:none;transition:all .2s}
+    .nav-link:hover{background:var(--surface2);color:var(--text)}
+    .nav-link.active{background:rgba(139,124,248,0.15);color:var(--accent)}
+
     /* HOME */
-    #screen-home{min-height:100vh;flex-direction:column;align-items:center;padding:2rem;position:relative;overflow-x:hidden}
+    #screen-home{min-height:100vh;flex-direction:column;align-items:center;padding:6rem 2rem 3rem;position:relative;overflow-x:hidden}
     .bg-glow{position:fixed;top:-300px;left:50%;transform:translateX(-50%);width:900px;height:700px;background:radial-gradient(ellipse,rgba(139,124,248,0.18) 0%,transparent 65%);pointer-events:none;z-index:0}
     .home-wrap{position:relative;z-index:1;width:100%;max-width:940px;display:flex;flex-direction:column;align-items:center;gap:2rem}
-    .home-hero{text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px;padding-top:2rem}
+    .home-hero{text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px;padding-top:1rem}
     .hero-icon{font-size:60px;filter:drop-shadow(0 0 28px rgba(139,124,248,0.55));animation:float 3s ease-in-out infinite}
     @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
     .hero-title{font-size:48px;font-weight:700;letter-spacing:-2.5px;line-height:1}
@@ -76,7 +85,7 @@
     .lobbies-empty{font-size:13px;color:var(--muted);text-align:center;padding:2rem 0}
     .home-footer{font-size:12px;color:var(--muted);text-align:center;opacity:.55;padding-bottom:2rem}
 
-    /* TEMA SEÇİCİ */
+    /* TEMA */
     .theme-row{display:flex;gap:8px;flex-wrap:wrap}
     .theme-btn{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;border:1px solid;transition:all .2s}
     .theme-btn.active{transform:scale(1.08)}
@@ -106,13 +115,22 @@
     .room-actions{display:flex;gap:6px}
     .btn-room-action{padding:6px 12px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--muted);font-size:12px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:all .2s;white-space:nowrap}
     .btn-room-action:hover{border-color:var(--accent);color:var(--accent)}
-    .btn-room-action.danger{border-color:rgba(255,95,87,0.25);color:var(--danger)}
-    .btn-room-action.danger:hover{background:rgba(255,95,87,0.1)}
     .btn-room-action.active{background:rgba(255,95,87,0.1);border-color:var(--danger);color:var(--danger)}
     .btn-leave{padding:7px 16px;background:rgba(255,95,87,0.08);border:1px solid rgba(255,95,87,0.25);border-radius:var(--r);color:var(--danger);font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:background .2s}
     .btn-leave:hover{background:rgba(255,95,87,0.18)}
-
-    /* Sabitlenmiş mesaj */
+    .room-settings-panel{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:12px;display:none;flex-direction:column;gap:10px}
+    .room-settings-panel.show{display:flex}
+    .settings-row{display:flex;gap:8px;align-items:center}
+    .settings-row input{flex:1;padding:9px 12px;font-size:13px}
+    .btn-settings-apply{padding:9px 16px;background:linear-gradient(135deg,var(--accent-dark),var(--accent));border:none;border-radius:var(--r);color:#fff;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;white-space:nowrap}
+    .bg-settings{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:10px}
+    .bg-settings-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+    .bg-presets{display:flex;gap:8px;flex-wrap:wrap}
+    .bg-preset{width:36px;height:36px;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:border-color .15s,transform .15s;flex-shrink:0}
+    .bg-preset.selected{border-color:#fff;transform:scale(1.1)}
+    .bg-custom-row{display:flex;gap:8px}
+    .bg-custom-row input{flex:1;font-size:13px;padding:8px 12px}
+    .btn-bg-apply{padding:8px 14px;background:linear-gradient(135deg,var(--accent-dark),var(--accent));border:none;border-radius:var(--r);color:#fff;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer}
     .pinned-msg{display:none;align-items:flex-start;gap:10px;padding:10px 14px;background:rgba(139,124,248,0.08);border:1px solid rgba(139,124,248,0.2);border-radius:var(--r);position:relative}
     .pinned-msg.show{display:flex}
     .pinned-icon{font-size:16px;flex-shrink:0;margin-top:1px}
@@ -122,18 +140,6 @@
     .pinned-who{font-size:11px;color:var(--muted);margin-top:1px}
     .btn-unpin{position:absolute;right:8px;top:8px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px;transition:color .2s}
     .btn-unpin:hover{color:var(--danger)}
-
-    /* Arka plan ayarları */
-    .bg-settings{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:10px}
-    .bg-settings-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
-    .bg-presets{display:flex;gap:8px;flex-wrap:wrap}
-    .bg-preset{width:36px;height:36px;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:border-color .15s,transform .15s;flex-shrink:0}
-    .bg-preset.selected{border-color:#fff;transform:scale(1.1)}
-    .bg-custom-row{display:flex;gap:8px}
-    .bg-custom-row input{flex:1;font-size:13px;padding:8px 12px}
-    .btn-bg-apply{padding:8px 14px;background:linear-gradient(135deg,var(--accent-dark),var(--accent));border:none;border-radius:var(--r);color:#fff;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer}
-
-    /* Video */
     .video-wrapper{position:relative;border-radius:16px;overflow:hidden;background:#000;border:1px solid var(--border2)}
     .video-box{aspect-ratio:16/9;display:flex;align-items:center;justify-content:center}
     .video-empty{text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px}
@@ -152,8 +158,6 @@
     .sync-bar{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
     .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite;flex-shrink:0}
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-
-    /* Kuyruk */
     .queue-section{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:8px}
     .queue-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;justify-content:space-between}
     .queue-add-row{display:flex;gap:8px}
@@ -165,8 +169,6 @@
     .queue-item-url{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
     .btn-queue-next{padding:4px 10px;background:rgba(139,124,248,0.12);border:1px solid rgba(139,124,248,0.3);border-radius:6px;color:var(--accent);font-size:11px;font-weight:600;cursor:pointer}
     .btn-queue-remove{padding:4px 8px;background:rgba(255,95,87,0.1);border:1px solid rgba(255,95,87,0.25);border-radius:6px;color:var(--danger);font-size:11px;cursor:pointer}
-
-    /* Oyun */
     .game-section{background:var(--surface);border:1px solid rgba(139,124,248,0.2);border-radius:var(--r);padding:12px;display:none;flex-direction:column;gap:8px}
     .game-section.show{display:flex}
     .game-word{font-size:22px;font-weight:700;letter-spacing:8px;color:var(--accent);text-align:center;padding:8px 0}
@@ -178,8 +180,6 @@
     .btn-game.hint{background:rgba(245,200,66,0.15);color:var(--gold);border:1px solid rgba(245,200,66,0.3)}
     .btn-game.stop{background:rgba(255,95,87,0.1);color:var(--danger);border:1px solid rgba(255,95,87,0.25)}
     .btn-game-start{padding:7px 14px;background:rgba(74,222,128,0.12);border:1px solid rgba(74,222,128,0.3);border-radius:8px;color:var(--green);font-size:12px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer}
-
-    /* Side */
     .side-panel{display:flex;flex-direction:column;border-bottom:1px solid var(--border)}
     .panel-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;font-size:13px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border)}
     .panel-count{background:var(--surface3);color:var(--accent);border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700}
@@ -201,14 +201,12 @@
     .action-btn.mute{background:rgba(245,200,66,0.1);border-color:rgba(245,200,66,0.3);color:var(--gold)}
     .action-btn.mod{background:rgba(96,165,250,0.1);border-color:rgba(96,165,250,0.3);color:var(--blue)}
     .action-btn.transfer{background:rgba(139,124,248,0.1);border-color:rgba(139,124,248,0.3);color:var(--accent)}
+    .action-btn.ban{background:rgba(255,95,87,0.1);border-color:rgba(255,95,87,0.3);color:var(--danger)}
     .ban-menu{position:relative;display:inline-block}
     .ban-dropdown{position:absolute;right:0;top:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:4px;z-index:99;display:none;min-width:100px}
     .ban-dropdown.show{display:block}
     .ban-option{padding:6px 10px;font-size:11px;cursor:pointer;border-radius:4px;color:var(--danger);white-space:nowrap}
     .ban-option:hover{background:rgba(255,95,87,0.1)}
-    .action-btn.ban{background:rgba(255,95,87,0.1);border-color:rgba(255,95,87,0.3);color:var(--danger)}
-
-    /* Chat */
     .chat-panel{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
     .chat-messages{overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px;flex:1}
     .chat-msg{display:flex;flex-direction:column;gap:2px;position:relative;border-radius:8px;padding:4px 6px;transition:background .15s}
@@ -223,7 +221,6 @@
     .msg-react-btn{padding:2px 6px;background:var(--surface3);border:1px solid var(--border2);border-radius:6px;font-size:12px;cursor:pointer}
     .msg-react-btn:hover{border-color:var(--accent)}
     .msg-pin-btn{padding:2px 6px;background:rgba(139,124,248,0.1);border:1px solid rgba(139,124,248,0.25);border-radius:6px;font-size:11px;cursor:pointer;color:var(--accent)}
-    .msg-pin-btn:hover{background:rgba(139,124,248,0.2)}
     .delete-msg-btn{width:20px;height:20px;background:rgba(255,95,87,0.15);border:none;border-radius:4px;color:var(--danger);font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center}
     .delete-msg-btn:hover{background:rgba(255,95,87,0.3)}
     .emoji-picker{position:absolute;right:0;top:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:6px;display:none;gap:4px;z-index:99}
@@ -240,14 +237,6 @@
     .chat-bottom input{flex:1;background:var(--surface2);padding:9px 12px;font-size:13px}
     .chat-send-btn{width:36px;height:36px;background:var(--accent);border:none;border-radius:var(--r);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .2s}
     .chat-send-btn:hover{opacity:.8}
-
-    /* Oda ayarları paneli */
-    .room-settings-panel{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);padding:12px;display:none;flex-direction:column;gap:10px}
-    .room-settings-panel.show{display:flex}
-    .settings-row{display:flex;gap:8px;align-items:center}
-    .settings-row input{flex:1;padding:9px 12px;font-size:13px}
-    .btn-settings-apply{padding:9px 16px;background:linear-gradient(135deg,var(--accent-dark),var(--accent));border:none;border-radius:var(--r);color:#fff;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;white-space:nowrap}
-
     .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface3);border:1px solid var(--border2);color:var(--text);padding:10px 22px;border-radius:30px;font-size:13px;font-weight:500;display:none;z-index:9999;box-shadow:0 8px 30px rgba(0,0,0,0.5);white-space:nowrap}
     .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:9998;backdrop-filter:blur(4px)}
     .modal-overlay.show{display:flex}
@@ -258,10 +247,19 @@
     .btn-modal-cancel{flex:1;padding:11px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--muted);font-size:14px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer}
     .btn-modal-ok{flex:1;padding:11px;background:linear-gradient(135deg,var(--accent-dark),var(--accent));border:none;border-radius:var(--r);color:#fff;font-size:14px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer}
     ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
-    @media(max-width:768px){.home-cols{grid-template-columns:1fr}.room-layout{flex-direction:column;height:auto;overflow:auto}.side-col{width:100%;border-left:none;border-top:1px solid var(--border)}}
+    @media(max-width:768px){.home-cols{grid-template-columns:1fr}.room-layout{flex-direction:column;height:auto;overflow:auto}.side-col{width:100%;border-left:none;border-top:1px solid var(--border)}.navbar{padding:12px 16px}}
   </style>
 </head>
 <body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <a href="/" class="nav-logo">Watch<span>Party</span></a>
+  <div class="nav-links">
+    <a href="/" class="nav-link active">🎬 WatchParty</a>
+    <a href="/games" class="nav-link">🎮 Mini Oyunlar</a>
+  </div>
+</nav>
 
 <!-- ANA EKRAN -->
 <div id="screen-home" class="screen active">
@@ -273,7 +271,6 @@
       <p class="hero-sub">Arkadaşlarınla aynı anda, aynı videoyu izle</p>
     </div>
 
-    <!-- TEMA -->
     <div style="display:flex;flex-direction:column;gap:8px;width:100%">
       <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase">🎨 Tema</div>
       <div class="theme-row" id="theme-row"></div>
@@ -316,6 +313,7 @@
           </div>
           <button class="btn-create" onclick="createRoom()">+ Oda Oluştur</button>
         </div>
+
         <div class="home-card">
           <div class="card-title">🔗 Koda Göre Katıl</div>
           <div class="field">
@@ -376,7 +374,6 @@
         </div>
       </div>
 
-      <!-- Oda Ayarları (host) -->
       <div class="room-settings-panel" id="room-settings-panel">
         <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">⚙️ Oda Ayarları</div>
         <div class="settings-row">
@@ -387,7 +384,6 @@
           <input id="new-room-password" type="password" placeholder="Yeni şifre (boş = şifresiz)" maxlength="20"/>
           <button class="btn-settings-apply" onclick="updateRoomPassword()">Güncelle</button>
         </div>
-        <!-- Arka plan -->
         <div class="bg-settings">
           <div class="bg-settings-title">🎨 Arka Plan</div>
           <div class="bg-presets" id="bg-presets"></div>
@@ -398,7 +394,6 @@
         </div>
       </div>
 
-      <!-- Sabitlenmiş mesaj -->
       <div class="pinned-msg" id="pinned-msg">
         <span class="pinned-icon">📌</span>
         <div class="pinned-content">
@@ -437,7 +432,7 @@
         <span id="sync-text">Oda sahibi video başlattığında senkronize olacak</span>
       </div>
 
-      <div class="queue-section" id="queue-section">
+      <div class="queue-section">
         <div class="queue-title">
           <span>📋 Video Kuyruğu (<span id="queue-count">0</span>)</span>
           <div style="display:flex;gap:6px">
