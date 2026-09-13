@@ -1,0 +1,9 @@
+build:
+  commands:
+    - npm install
+
+start:
+  command: node server.js
+
+environment:
+  NODE_ENV: production
