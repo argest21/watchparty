@@ -17,9 +17,25 @@ function genCode() {
   return rooms[code] ? genCode() : code;
 }
 
+function getPublicRooms() {
+  return Object.entries(rooms)
+    .filter(([, r]) => !r.isPrivate)
+    .map(([code, r]) => ({
+      code,
+      host: r.members.find(m => m.isHost)?.username || '',
+      memberCount: r.members.length,
+      hasVideo: !!r.video
+    }));
+}
+
 io.on('connection', (socket) => {
 
-  socket.on('create-room', ({ username }) => {
+  // Lobi listesi gönder
+  socket.on('get-lobbies', () => {
+    socket.emit('lobbies', getPublicRooms());
+  });
+
+  socket.on('create-room', ({ username, isPrivate, password }) => {
     const code = genCode();
     rooms[code] = {
       host: socket.id,
@@ -27,17 +43,25 @@ io.on('connection', (socket) => {
       video: null,
       playing: false,
       currentTime: 0,
-      lastUpdate: Date.now()
+      lastUpdate: Date.now(),
+      isPrivate: !!isPrivate,
+      password: isPrivate ? (password || '') : ''
     };
     socket.join(code);
     socket.roomCode = code;
     socket.username = username;
     socket.emit('room-created', { code, members: rooms[code].members });
+    // Public ise lobi listesini güncelle
+    io.emit('lobbies', getPublicRooms());
   });
 
-  socket.on('join-room', ({ code, username }) => {
+  socket.on('join-room', ({ code, username, password }) => {
     code = code.toUpperCase();
     if (!rooms[code]) { socket.emit('error-msg', 'Oda bulunamadı'); return; }
+    if (rooms[code].isPrivate && rooms[code].password !== password) {
+      socket.emit('error-msg', 'Yanlış şifre!');
+      return;
+    }
     rooms[code].members.push({ id: socket.id, username, isHost: false });
     socket.join(code);
     socket.roomCode = code;
@@ -50,6 +74,7 @@ io.on('connection', (socket) => {
       currentTime: rooms[code].currentTime
     });
     socket.to(code).emit('member-joined', { username, members: rooms[code].members });
+    io.emit('lobbies', getPublicRooms());
   });
 
   socket.on('load-video', ({ url }) => {
@@ -60,6 +85,7 @@ io.on('connection', (socket) => {
     rooms[code].currentTime = 0;
     rooms[code].lastUpdate = Date.now();
     io.to(code).emit('video-loaded', { url });
+    io.emit('lobbies', getPublicRooms());
   });
 
   socket.on('video-play', ({ currentTime }) => {
@@ -96,14 +122,9 @@ io.on('connection', (socket) => {
     if (!target) return;
     rooms[code].members = rooms[code].members.filter(m => m.id !== targetId);
     io.to(targetId).emit('kicked');
-    io.to(code).emit('member-left', {
-      username: target.username,
-      members: rooms[code].members
-    });
-    io.to(code).emit('chat-msg', {
-      username: '🔴 Sistem',
-      msg: target.username + ' odadan atıldı'
-    });
+    io.to(code).emit('member-left', { username: target.username, members: rooms[code].members });
+    io.to(code).emit('chat-msg', { username: '🔴 Sistem', msg: target.username + ' odadan atıldı' });
+    io.emit('lobbies', getPublicRooms());
   });
 
   socket.on('chat-msg', ({ msg }) => {
@@ -116,7 +137,11 @@ io.on('connection', (socket) => {
     const code = socket.roomCode;
     if (!code || !rooms[code]) return;
     rooms[code].members = rooms[code].members.filter(m => m.id !== socket.id);
-    if (rooms[code].members.length === 0) { delete rooms[code]; return; }
+    if (rooms[code].members.length === 0) {
+      delete rooms[code];
+      io.emit('lobbies', getPublicRooms());
+      return;
+    }
     if (rooms[code].host === socket.id) {
       const newHost = rooms[code].members[0];
       rooms[code].host = newHost.id;
@@ -124,6 +149,7 @@ io.on('connection', (socket) => {
       io.to(code).emit('host-changed', { newHost: newHost.username });
     }
     io.to(code).emit('member-left', { username: socket.username, members: rooms[code].members });
+    io.emit('lobbies', getPublicRooms());
   });
 
 });
