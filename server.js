@@ -20,8 +20,10 @@ function genCode() {
 function getAllRooms() {
   return Object.entries(rooms).map(([code, r]) => ({
     code,
+    name: r.name,
     host: r.members.find(m => m.isHost)?.username || '?',
     memberCount: r.members.length,
+    maxMembers: r.maxMembers,
     hasVideo: !!r.video,
     isPrivate: r.isPrivate
   }));
@@ -32,29 +34,30 @@ function broadcastLobbies() {
 }
 
 io.on('connection', (socket) => {
-  console.log('Bağlandı:', socket.id);
 
   socket.on('get-lobbies', () => {
     socket.emit('lobbies', getAllRooms());
   });
 
-  socket.on('create-room', ({ username, isPrivate, password }) => {
+  socket.on('create-room', ({ username, isPrivate, password, name, maxMembers }) => {
     const code = genCode();
     rooms[code] = {
       host: socket.id,
-      members: [{ id: socket.id, username, isHost: true }],
+      members: [{ id: socket.id, username, isHost: true, muted: false }],
       video: null,
       playing: false,
       currentTime: 0,
       lastUpdate: Date.now(),
       isPrivate: !!isPrivate,
-      password: isPrivate ? (password || '') : ''
+      password: isPrivate ? (password || '') : '',
+      name: name || (username + "'in odası"),
+      maxMembers: maxMembers || 10,
+      messages: []
     };
     socket.join(code);
     socket.roomCode = code;
     socket.username = username;
-    console.log('Oda oluşturuldu:', code, '| Gizli:', isPrivate, '| Sahip:', username);
-    socket.emit('room-created', { code, members: rooms[code].members });
+    socket.emit('room-created', { code, members: rooms[code].members, name: rooms[code].name });
     broadcastLobbies();
   });
 
@@ -62,17 +65,22 @@ io.on('connection', (socket) => {
     code = code.toUpperCase();
     const room = rooms[code];
     if (!room) { socket.emit('error-msg', 'Oda bulunamadı'); return; }
+    if (room.members.length >= room.maxMembers) { socket.emit('error-msg', 'Oda dolu! (' + room.maxMembers + '/' + room.maxMembers + ')'); return; }
     if (room.isPrivate) {
       if (!password) { socket.emit('error-msg', 'Şifre gerekli'); return; }
       if (room.password !== password) { socket.emit('error-msg', 'Yanlış şifre!'); return; }
     }
-    room.members.push({ id: socket.id, username, isHost: false });
+    room.members.push({ id: socket.id, username, isHost: false, muted: false });
     socket.join(code);
     socket.roomCode = code;
     socket.username = username;
     socket.emit('room-joined', {
-      code, members: room.members,
-      video: room.video, playing: room.playing, currentTime: room.currentTime
+      code, name: room.name,
+      members: room.members,
+      video: room.video,
+      playing: room.playing,
+      currentTime: room.currentTime,
+      messages: room.messages
     });
     socket.to(code).emit('member-joined', { username, members: room.members });
     broadcastLobbies();
@@ -124,14 +132,58 @@ io.on('connection', (socket) => {
     rooms[code].members = rooms[code].members.filter(m => m.id !== targetId);
     io.to(targetId).emit('kicked');
     io.to(code).emit('member-left', { username: target.username, members: rooms[code].members });
-    io.to(code).emit('chat-msg', { username: '🔴 Sistem', msg: target.username + ' odadan atıldı' });
+    io.to(code).emit('chat-msg', { id: Date.now(), username: '🔴 Sistem', msg: target.username + ' odadan atıldı', sys: true });
     broadcastLobbies();
+  });
+
+  socket.on('mute-member', ({ targetId }) => {
+    const code = socket.roomCode;
+    if (!rooms[code] || rooms[code].host !== socket.id) return;
+    const target = rooms[code].members.find(m => m.id === targetId);
+    if (!target) return;
+    target.muted = !target.muted;
+    io.to(targetId).emit('muted', { muted: target.muted });
+    io.to(code).emit('member-updated', { members: rooms[code].members });
+    io.to(code).emit('chat-msg', {
+      id: Date.now(), username: '🔇 Sistem',
+      msg: target.username + (target.muted ? ' susturuldu' : ' sesi açıldı'),
+      sys: true
+    });
+  });
+
+  socket.on('transfer-host', ({ targetId }) => {
+    const code = socket.roomCode;
+    if (!rooms[code] || rooms[code].host !== socket.id) return;
+    const target = rooms[code].members.find(m => m.id === targetId);
+    if (!target) return;
+    const oldHost = rooms[code].members.find(m => m.id === socket.id);
+    if (oldHost) oldHost.isHost = false;
+    target.isHost = true;
+    rooms[code].host = targetId;
+    io.to(targetId).emit('you-are-host');
+    io.to(code).emit('host-changed', { newHost: target.username, members: rooms[code].members });
+    broadcastLobbies();
+  });
+
+  socket.on('delete-msg', ({ msgId }) => {
+    const code = socket.roomCode;
+    if (!rooms[code] || rooms[code].host !== socket.id) return;
+    rooms[code].messages = rooms[code].messages.filter(m => m.id !== msgId);
+    io.to(code).emit('msg-deleted', { msgId });
   });
 
   socket.on('chat-msg', ({ msg }) => {
     const code = socket.roomCode;
     if (!rooms[code]) return;
-    io.to(code).emit('chat-msg', { username: socket.username, msg });
+    const member = rooms[code].members.find(m => m.id === socket.id);
+    if (member && member.muted) {
+      socket.emit('error-msg', 'Susturuldunuz, mesaj gönderemezsiniz');
+      return;
+    }
+    const message = { id: Date.now() + Math.random(), username: socket.username, msg };
+    rooms[code].messages.push(message);
+    if (rooms[code].messages.length > 100) rooms[code].messages.shift();
+    io.to(code).emit('chat-msg', message);
   });
 
   socket.on('disconnect', () => {
@@ -143,11 +195,13 @@ io.on('connection', (socket) => {
       const newHost = rooms[code].members[0];
       rooms[code].host = newHost.id;
       newHost.isHost = true;
-      io.to(code).emit('host-changed', { newHost: newHost.username });
+      io.to(newHost.id).emit('you-are-host');
+      io.to(code).emit('host-changed', { newHost: newHost.username, members: rooms[code].members });
     }
     io.to(code).emit('member-left', { username: socket.username, members: rooms[code].members });
     broadcastLobbies();
   });
+
 });
 
 const PORT = process.env.PORT || 3000;
