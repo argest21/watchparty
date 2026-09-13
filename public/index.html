@@ -17,8 +17,6 @@
     }
     body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background .3s}
     .screen{display:none!important}.screen.active{display:flex!important}
-
-    /* NAVBAR */
     .navbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:rgba(17,17,24,0.95);border-bottom:1px solid var(--border2);position:fixed;top:0;left:0;right:0;z-index:200;backdrop-filter:blur(12px)}
     .nav-logo{font-size:20px;font-weight:700;letter-spacing:-.5px;color:var(--text);text-decoration:none}
     .nav-logo span{color:var(--accent)}
@@ -26,18 +24,16 @@
     .nav-link{padding:7px 16px;border-radius:var(--r);font-size:13px;font-weight:600;color:var(--muted);text-decoration:none;transition:all .2s}
     .nav-link:hover{background:var(--surface2);color:var(--text)}
     .nav-link.active{background:rgba(139,124,248,0.15);color:var(--accent)}
-
-    /* HOME */
     #screen-home{min-height:100vh;flex-direction:column;align-items:center;padding:6rem 2rem 3rem;position:relative;overflow-x:hidden}
     .bg-glow{position:fixed;top:-300px;left:50%;transform:translateX(-50%);width:900px;height:700px;background:radial-gradient(ellipse,rgba(139,124,248,0.18) 0%,transparent 65%);pointer-events:none;z-index:0}
-    .home-wrap{position:relative;z-index:1;width:100%;max-width:940px;display:flex;flex-direction:column;align-items:center;gap:2rem}
+    .home-wrap{position:relative;z-index:1;width:100%;max-width:1200px;display:flex;flex-direction:column;align-items:center;gap:2rem}
     .home-hero{text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px;padding-top:1rem}
     .hero-icon{font-size:60px;filter:drop-shadow(0 0 28px rgba(139,124,248,0.55));animation:float 3s ease-in-out infinite}
     @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
     .hero-title{font-size:48px;font-weight:700;letter-spacing:-2.5px;line-height:1}
     .hero-title span{color:var(--accent)}
     .hero-sub{font-size:15px;color:var(--muted);line-height:1.6}
-    .home-cols{display:grid;grid-template-columns:1fr 1fr;gap:20px;width:100%}
+    .home-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;width:100%}
     .home-card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--rl);padding:1.5rem;display:flex;flex-direction:column;gap:14px;box-shadow:0 0 60px rgba(139,124,248,0.07),0 20px 60px rgba(0,0,0,0.4)}
     .card-title{font-size:14px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
     .field{display:flex;flex-direction:column;gap:7px}
@@ -64,7 +60,7 @@
     .btn-join{padding:12px 18px;background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);font-size:14px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;white-space:nowrap;transition:all .2s}
     .btn-join:hover{background:rgba(139,124,248,0.12);border-color:var(--accent);color:var(--accent)}
     .err{font-size:12px;color:var(--danger);display:none}.err.show{display:block}
-    .lobbies-list{display:flex;flex-direction:column;gap:8px;max-height:380px;overflow-y:auto}
+    .lobbies-list{display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto}
     .lobby-item{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);transition:border-color .2s}
     .lobby-item:hover{border-color:var(--accent)}
     .lobby-avatar{width:38px;height:38px;border-radius:50%;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -84,11 +80,45 @@
     .btn-refresh:hover{background:rgba(139,124,248,0.25)}
     .lobbies-empty{font-size:13px;color:var(--muted);text-align:center;padding:2rem 0}
     .home-footer{font-size:12px;color:var(--muted);text-align:center;opacity:.55;padding-bottom:2rem}
-
-    /* TEMA */
     .theme-row{display:flex;gap:8px;flex-wrap:wrap}
     .theme-btn{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;border:1px solid;transition:all .2s}
     .theme-btn.active{transform:scale(1.08)}
+
+    /* ARKADAŞ PANELİ */
+    .my-id-box{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r)}
+    .my-id-val{flex:1;font-family:monospace;font-size:12px;color:var(--accent);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .btn-copy-id{padding:5px 12px;background:rgba(139,124,248,0.12);border:1px solid rgba(139,124,248,0.3);border-radius:8px;color:var(--accent);font-size:12px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0}
+    .btn-copy-id:hover{background:rgba(139,124,248,0.25)}
+    .add-friend-row{display:flex;gap:8px}
+    .add-friend-row input{flex:1;font-size:13px}
+    .btn-add-friend{padding:10px 16px;background:linear-gradient(135deg,var(--accent-dark),var(--accent));border:none;border-radius:var(--r);color:#fff;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;white-space:nowrap;transition:opacity .2s}
+    .btn-add-friend:hover{opacity:.85}
+    .friends-list{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto}
+    .friend-item{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);transition:border-color .2s}
+    .friend-item:hover{border-color:var(--border2)}
+    .friend-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
+    .friend-info{flex:1;min-width:0}
+    .friend-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .friend-id-text{font-size:10px;color:var(--muted);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .friend-status{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+    .friend-status.online{background:var(--green);box-shadow:0 0 6px var(--green)}
+    .friend-status.offline{background:var(--muted)}
+    .friend-actions{display:flex;gap:4px}
+    .btn-friend-action{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;border:1px solid;transition:all .2s;white-space:nowrap}
+    .btn-friend-action.invite{background:rgba(139,124,248,0.1);border-color:rgba(139,124,248,0.3);color:var(--accent)}
+    .btn-friend-action.invite:hover{background:rgba(139,124,248,0.25)}
+    .btn-friend-action.remove{background:rgba(255,95,87,0.08);border-color:rgba(255,95,87,0.2);color:var(--danger)}
+    .btn-friend-action.remove:hover{background:rgba(255,95,87,0.18)}
+    .friends-empty{font-size:13px;color:var(--muted);text-align:center;padding:1.5rem 0;line-height:1.6}
+
+    /* DAVET */
+    .invite-toast{position:fixed;bottom:80px;right:24px;background:var(--surface);border:1px solid rgba(139,124,248,0.3);border-radius:var(--rl);padding:16px 20px;display:none;z-index:9999;box-shadow:0 8px 40px rgba(0,0,0,0.5);max-width:300px}
+    .invite-toast.show{display:block}
+    .invite-toast-title{font-size:14px;font-weight:700;margin-bottom:4px}
+    .invite-toast-sub{font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.5}
+    .invite-toast-btns{display:flex;gap:8px}
+    .btn-invite-accept{flex:1;padding:8px;background:linear-gradient(135deg,var(--accent-dark),var(--accent));border:none;border-radius:var(--r);color:#fff;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer}
+    .btn-invite-decline{flex:1;padding:8px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--muted);font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer}
 
     /* ODA */
     #screen-room{min-height:100vh;flex-direction:column}
@@ -247,12 +277,12 @@
     .btn-modal-cancel{flex:1;padding:11px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--muted);font-size:14px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer}
     .btn-modal-ok{flex:1;padding:11px;background:linear-gradient(135deg,var(--accent-dark),var(--accent));border:none;border-radius:var(--r);color:#fff;font-size:14px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer}
     ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+    @media(max-width:1024px){.home-cols{grid-template-columns:1fr 1fr}}
     @media(max-width:768px){.home-cols{grid-template-columns:1fr}.room-layout{flex-direction:column;height:auto;overflow:auto}.side-col{width:100%;border-left:none;border-top:1px solid var(--border)}.navbar{padding:12px 16px}}
   </style>
 </head>
 <body>
 
-<!-- NAVBAR -->
 <nav class="navbar">
   <a href="/" class="nav-logo">Watch<span>Party</span></a>
   <div class="nav-links">
@@ -277,6 +307,7 @@
     </div>
 
     <div class="home-cols">
+      <!-- SOL: OLUŞTUR + KATIL -->
       <div style="display:flex;flex-direction:column;gap:16px">
         <div class="home-card">
           <div class="card-title">🎮 Oda Oluştur</div>
@@ -313,7 +344,6 @@
           </div>
           <button class="btn-create" onclick="createRoom()">+ Oda Oluştur</button>
         </div>
-
         <div class="home-card">
           <div class="card-title">🔗 Koda Göre Katıl</div>
           <div class="field">
@@ -329,6 +359,7 @@
         </div>
       </div>
 
+      <!-- ORTA: LOBİLER -->
       <div class="home-card">
         <div class="card-title" style="justify-content:space-between">
           <span>🌐 Tüm Lobiler</span>
@@ -341,7 +372,42 @@
           <div class="lobbies-empty">Henüz lobi yok 👀</div>
         </div>
       </div>
+
+      <!-- SAĞ: ARKADAŞLAR -->
+      <div class="home-card">
+        <div class="card-title">👥 Arkadaşlar</div>
+
+        <div>
+          <div class="field" style="margin-bottom:8px">
+            <label>Senin ID'n</label>
+            <div class="my-id-box">
+              <span class="my-id-val" id="my-user-id">Yükleniyor...</span>
+              <button class="btn-copy-id" onclick="copyMyId()">📋 Kopyala</button>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5">Bu ID'yi arkadaşlarına gönder, seni eklesinler 🔗</div>
+        </div>
+
+        <div class="field">
+          <label>Arkadaş Ekle</label>
+          <div class="add-friend-row">
+            <input id="friend-id-input" type="text" placeholder="Arkadaşının ID'sini yapıştır..." maxlength="40"/>
+            <button class="btn-add-friend" onclick="addFriend()">+ Ekle</button>
+          </div>
+          <span class="err" id="err-friend"></span>
+        </div>
+
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">
+            Liste (<span id="friend-count">0</span>)
+          </div>
+          <div class="friends-list" id="friends-list">
+            <div class="friends-empty">Henüz arkadaşın yok 👀<br/>ID'ni paylaş, eklensin!</div>
+          </div>
+        </div>
+      </div>
     </div>
+
     <p class="home-footer">Kayıt gerekmez · Ücretsiz · Anlık senkronizasyon</p>
   </div>
 </div>
@@ -499,6 +565,16 @@
       <button class="btn-modal-cancel" onclick="closeModal()">İptal</button>
       <button class="btn-modal-ok" onclick="modalJoin()">Katıl</button>
     </div>
+  </div>
+</div>
+
+<!-- DAVET BİLDİRİMİ -->
+<div class="invite-toast" id="invite-toast">
+  <div class="invite-toast-title">🎬 Oda Daveti!</div>
+  <div class="invite-toast-sub" id="invite-toast-sub"></div>
+  <div class="invite-toast-btns">
+    <button class="btn-invite-accept" onclick="acceptInvite()">✓ Katıl</button>
+    <button class="btn-invite-decline" onclick="declineInvite()">✕ Reddet</button>
   </div>
 </div>
 
