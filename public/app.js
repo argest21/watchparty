@@ -7,18 +7,70 @@ let state = {
 };
 
 let mp4Syncing = false;
+let pendingJoin = null; // şifreli odaya katılım için
+let privateMode = false;
 
-// ——— ANA EKRAN ———
+// ——— TOGGLE ———
+function togglePrivate() {
+  privateMode = !privateMode;
+  const t = document.getElementById('toggle-private');
+  const pf = document.getElementById('password-field');
+  t.classList.toggle('on', privateMode);
+  pf.style.display = privateMode ? 'flex' : 'none';
+}
 
+// ——— LOBİLER ———
+socket.on('lobbies', (lobbies) => {
+  const list = document.getElementById('lobbies-list');
+  const count = document.getElementById('lobby-count');
+  count.textContent = lobbies.length + ' aktif';
+  if (lobbies.length === 0) {
+    list.innerHTML = '<div class="lobbies-empty">Henüz açık lobi yok 👀</div>';
+    return;
+  }
+  list.innerHTML = '';
+  lobbies.forEach(l => {
+    const div = document.createElement('div');
+    div.className = 'lobby-item';
+    div.innerHTML = `
+      <div class="lobby-avatar">${l.host.slice(0,2).toUpperCase()}</div>
+      <div class="lobby-info">
+        <div class="lobby-host">${esc(l.host)}'in odası</div>
+        <div class="lobby-meta">
+          👥 ${l.memberCount} kişi
+          ${l.hasVideo ? '<span class="lobby-live"><span class="lobby-live-dot"></span>Canlı</span>' : ''}
+        </div>
+      </div>
+      <button class="btn-enter" onclick="joinLobby('${l.code}')">Katıl</button>
+    `;
+    list.appendChild(div);
+  });
+});
+
+function joinLobby(code) {
+  const u = document.getElementById('home-username').value.trim();
+  if (!u) {
+    showErr('err-username', true);
+    document.getElementById('home-username').focus();
+    return;
+  }
+  showErr('err-username', false);
+  state.username = u;
+  socket.emit('join-room', { code, username: u, password: '' });
+}
+
+// ——— OLUŞTUR ———
 function createRoom() {
   const u = document.getElementById('home-username').value.trim();
   if (!u) { showErr('err-username', true); return; }
   showErr('err-username', false);
   state.username = u;
-  socket.emit('create-room', { username: u });
+  const pass = privateMode ? document.getElementById('room-password').value : '';
+  socket.emit('create-room', { username: u, isPrivate: privateMode, password: pass });
 }
 
-function joinRoom() {
+// ——— KOD İLE KATIL ———
+function joinByCode() {
   const u = document.getElementById('home-username').value.trim();
   const c = document.getElementById('home-code').value.trim().toUpperCase();
   if (!u) { showErr('err-username', true); return; }
@@ -26,15 +78,31 @@ function joinRoom() {
   if (c.length !== 6) { showErr('err-code', true); return; }
   showErr('err-code', false);
   state.username = u;
-  socket.emit('join-room', { code: c, username: u });
+  pendingJoin = { code: c, username: u };
+  socket.emit('join-room', { code: c, username: u, password: '' });
 }
 
-document.getElementById('home-code').addEventListener('input', function () {
-  this.value = this.value.toUpperCase();
-});
+// ——— MODAL ———
+function openModal(code, hostName) {
+  document.getElementById('modal-sub').textContent = (hostName || code) + ' odasına katılmak için şifre gir';
+  document.getElementById('modal-password').value = '';
+  showErr('err-modal', false);
+  document.getElementById('password-modal').classList.add('show');
+  setTimeout(() => document.getElementById('modal-password').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('password-modal').classList.remove('show');
+  pendingJoin = null;
+}
+
+function modalJoin() {
+  if (!pendingJoin) return;
+  const pass = document.getElementById('modal-password').value;
+  socket.emit('join-room', { code: pendingJoin.code, username: pendingJoin.username, password: pass });
+}
 
 // ——— SOCKET OLAYLARI ———
-
 socket.on('room-created', ({ code, members }) => {
   state.roomCode = code;
   state.isHost = true;
@@ -44,6 +112,7 @@ socket.on('room-created', ({ code, members }) => {
 socket.on('room-joined', ({ code, members, video, playing, currentTime }) => {
   state.roomCode = code;
   state.isHost = false;
+  closeModal();
   enterRoom(members);
   if (video) {
     renderVideo(video);
@@ -56,6 +125,18 @@ socket.on('room-joined', ({ code, members, video, playing, currentTime }) => {
 });
 
 socket.on('error-msg', (msg) => {
+  if (msg === 'Yanlış şifre!') {
+    if (pendingJoin) {
+      openModal(pendingJoin.code, '');
+      showErr('err-modal', true);
+    }
+    return;
+  }
+  if (msg === 'Oda bulunamadı' && pendingJoin) {
+    // şifreli oda dene — modal aç
+    openModal(pendingJoin.code, '');
+    return;
+  }
   const el = document.getElementById('err-server');
   el.textContent = msg;
   el.classList.add('show');
@@ -121,7 +202,6 @@ socket.on('chat-msg', ({ username, msg }) => {
 });
 
 // ——— ODA ———
-
 function enterRoom(members) {
   const home = document.getElementById('screen-home');
   const room = document.getElementById('screen-room');
@@ -138,7 +218,7 @@ function enterRoom(members) {
 
   if (state.isHost) {
     document.getElementById('placeholder-text').textContent = 'Video seç ve başlat';
-    document.getElementById('placeholder-sub').textContent = 'YouTube, Kick, MP4 linki yapıştır';
+    document.getElementById('placeholder-sub').textContent = 'YouTube, Kick, Twitch veya MP4 linki yapıştır';
   }
 
   renderMembers(members);
@@ -160,57 +240,44 @@ function renderMembers(members) {
         <div class="member-name">${esc(m.username)}${isMe ? ' <span style="color:var(--muted);font-size:11px">(sen)</span>' : ''}</div>
         ${m.isHost ? '<div class="member-tag">👑 Oda Sahibi</div>' : ''}
       </div>
-      ${state.isHost && !isMe && !m.isHost ? `<button class="kick-btn" onclick="kickMember('${m.id}', '${esc(m.username)}')">At</button>` : ''}
+      ${state.isHost && !isMe && !m.isHost ? `<button class="kick-btn" onclick="kickMember('${m.id}','${esc(m.username)}')">At</button>` : ''}
     `;
     el.appendChild(div);
   });
 }
-
-// ——— KİCK ———
 
 function kickMember(targetId, username) {
   if (!confirm(username + ' kişisini odadan atmak istiyor musun?')) return;
   socket.emit('kick-member', { targetId });
 }
 
-// ——— VİDEO KAYNAK TESPİTİ ———
-
+// ——— VİDEO ———
 function getYouTubeId(url) {
   const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/);
   return m ? m[1] : null;
 }
 
-function getKickUsername(url) {
-  // kick.com/kullaniciadi veya kick.com/kullaniciadi/... formatı
+function getKickChannel(url) {
   const m = url.match(/kick\.com\/([A-Za-z0-9_]+)/);
   return m ? m[1] : null;
 }
 
-function getTwitchUsername(url) {
+function getTwitchChannel(url) {
   const m = url.match(/twitch\.tv\/([A-Za-z0-9_]+)/);
   return m ? m[1] : null;
 }
 
-function isMp4(url) {
-  return /\.(mp4|webm|ogg)(\?|$)/i.test(url);
-}
-
-function detectVideoType(url) {
+function detectType(url) {
   if (getYouTubeId(url)) return 'youtube';
-  if (getKickUsername(url)) return 'kick';
-  if (getTwitchUsername(url)) return 'twitch';
-  if (isMp4(url)) return 'mp4';
+  if (getKickChannel(url)) return 'kick';
+  if (getTwitchChannel(url)) return 'twitch';
+  if (/\.(mp4|webm|ogg)(\?|$)/i.test(url)) return 'mp4';
   return null;
 }
 
-// ——— VİDEO YÜKLE ———
-
 function loadVideo() {
   const url = document.getElementById('video-url').value.trim();
-  if (!url) { showErr('err-video', true); return; }
-
-  const type = detectVideoType(url);
-  if (!type) {
+  if (!url || !detectType(url)) {
     document.getElementById('err-video').textContent = 'YouTube, Kick, Twitch veya MP4 linki gir';
     showErr('err-video', true);
     return;
@@ -223,33 +290,26 @@ function renderVideo(url) {
   document.getElementById('video-placeholder').style.display = 'none';
   const yt = document.getElementById('yt-frame');
   const mp4El = document.getElementById('mp4-player');
-  const type = detectVideoType(url);
+  yt.style.display = 'none'; yt.src = '';
+  mp4El.style.display = 'none'; mp4El.src = '';
 
-  // Hepsini gizle
-  yt.style.display = 'none';
-  mp4El.style.display = 'none';
-  yt.src = '';
-  mp4El.src = '';
+  const type = detectType(url);
 
   if (type === 'youtube') {
-    const id = getYouTubeId(url);
-    yt.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&enablejsapi=1`;
+    yt.src = `https://www.youtube-nocookie.com/embed/${getYouTubeId(url)}?autoplay=1&enablejsapi=1`;
     yt.style.display = 'block';
-
   } else if (type === 'kick') {
-    const user = getKickUsername(url);
-    // Kick embed: player.kick.com/embed/channel/kullaniciadi
-    yt.src = `https://player.kick.com/channel/${user}?autoplay=true&muted=false`;
+    const ch = getKickChannel(url);
+    // Kick'in doğru embed URL'si
+    yt.src = `https://player.kick.com/${ch}`;
     yt.style.display = 'block';
-    addMsg(null, '🟢 Kick yayını açıldı: ' + user, true);
-
+    addMsg(null, '🟢 Kick yayını: ' + ch, true);
   } else if (type === 'twitch') {
-    const user = getTwitchUsername(url);
-    const parent = window.location.hostname || 'localhost';
-    yt.src = `https://player.twitch.tv/?channel=${user}&parent=${parent}&autoplay=true`;
+    const ch = getTwitchChannel(url);
+    const parent = window.location.hostname;
+    yt.src = `https://player.twitch.tv/?channel=${ch}&parent=${parent}&autoplay=true`;
     yt.style.display = 'block';
-    addMsg(null, '🟣 Twitch yayını açıldı: ' + user, true);
-
+    addMsg(null, '🟣 Twitch yayını: ' + ch, true);
   } else if (type === 'mp4') {
     mp4El.src = url;
     mp4El.style.display = 'block';
@@ -260,22 +320,12 @@ function renderVideo(url) {
 function attachMp4Events(mp4) {
   if (mp4._eventsAttached) return;
   mp4._eventsAttached = true;
-  mp4.addEventListener('play', () => {
-    if (!state.isHost || mp4Syncing) return;
-    socket.emit('video-play', { currentTime: mp4.currentTime });
-  });
-  mp4.addEventListener('pause', () => {
-    if (!state.isHost || mp4Syncing) return;
-    socket.emit('video-pause', { currentTime: mp4.currentTime });
-  });
-  mp4.addEventListener('seeked', () => {
-    if (!state.isHost || mp4Syncing) return;
-    socket.emit('video-seek', { currentTime: mp4.currentTime });
-  });
+  mp4.addEventListener('play', () => { if (!state.isHost || mp4Syncing) return; socket.emit('video-play', { currentTime: mp4.currentTime }); });
+  mp4.addEventListener('pause', () => { if (!state.isHost || mp4Syncing) return; socket.emit('video-pause', { currentTime: mp4.currentTime }); });
+  mp4.addEventListener('seeked', () => { if (!state.isHost || mp4Syncing) return; socket.emit('video-seek', { currentTime: mp4.currentTime }); });
 }
 
 // ——— SOHBET ———
-
 function sendChat() {
   const inp = document.getElementById('chat-input');
   const msg = inp.value.trim();
@@ -288,50 +338,38 @@ function addMsg(who, msg, sys = false) {
   const box = document.getElementById('chat-messages');
   const div = document.createElement('div');
   div.className = 'chat-msg';
-  const now = new Date();
-  const t = now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+  const t = new Date().getHours() + ':' + String(new Date().getMinutes()).padStart(2, '0');
   if (sys) {
     div.innerHTML = `<span class="chat-sys">${esc(msg)}</span>`;
   } else {
-    div.innerHTML = `
-      <div class="chat-msg-header">
-        <span class="chat-who">${esc(who)}</span>
-        <span class="chat-time">${t}</span>
-      </div>
-      <div class="chat-text">${esc(msg)}</div>
-    `;
+    div.innerHTML = `<div class="chat-msg-header"><span class="chat-who">${esc(who)}</span><span class="chat-time">${t}</span></div><div class="chat-text">${esc(msg)}</div>`;
   }
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
 }
 
 // ——— YARDIMCILAR ———
-
 function copyCode() {
   if (navigator.clipboard) navigator.clipboard.writeText(state.roomCode).catch(() => {});
   showToast('✓ Kod kopyalandı: ' + state.roomCode);
 }
 
-function leaveRoom() {
-  location.reload();
-}
+function leaveRoom() { location.reload(); }
 
 function showToast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.style.display = 'block';
+  t.textContent = msg; t.style.display = 'block';
   setTimeout(() => t.style.display = 'none', 2500);
 }
 
 function showErr(id, show) {
   const el = document.getElementById(id);
-  if (show) el.classList.add('show');
-  else el.classList.remove('show');
+  if (show) el.classList.add('show'); else el.classList.remove('show');
 }
 
 function esc(s) {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+
+// Başlangıçta lobi listesini al
+socket.emit('get-lobbies');
