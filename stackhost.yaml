@@ -1,13 +1,7 @@
 runtime:
-  name: nodejs
-  image: node:18
+  image: node:22
 
-build:
-  commands:
-    - npm install
-
-start:
-  command: node server.js
-
-environment:
-  NODE_ENV: production
+commands:
+  build:
+    - "npm install"
+  start: "node server.js"
