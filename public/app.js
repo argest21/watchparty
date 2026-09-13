@@ -80,8 +80,14 @@ socket.on('chat-msg', ({ username, msg }) => {
 // ——— ODA ———
 
 function enterRoom(members) {
-  document.getElementById('screen-home').classList.remove('active');
-  document.getElementById('screen-room').classList.add('active');
+  const home = document.getElementById('screen-home');
+  const room = document.getElementById('screen-room');
+
+  home.classList.remove('active');
+  home.style.display = 'none';
+
+  room.style.display = 'block';
+  room.classList.add('active');
 
   document.getElementById('badge-username').textContent = state.username;
   document.getElementById('badge-code').textContent = '#' + state.roomCode;
