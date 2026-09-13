@@ -18,19 +18,25 @@ function genCode() {
 }
 
 function getPublicRooms() {
-  return Object.entries(rooms)
+  const list = Object.entries(rooms)
     .filter(([, r]) => !r.isPrivate)
     .map(([code, r]) => ({
       code,
-      host: r.members.find(m => m.isHost)?.username || '',
+      host: r.members.find(m => m.isHost)?.username || '?',
       memberCount: r.members.length,
       hasVideo: !!r.video
     }));
+  console.log('Public odalar:', list);
+  return list;
+}
+
+function broadcastLobbies() {
+  io.emit('lobbies', getPublicRooms());
 }
 
 io.on('connection', (socket) => {
+  console.log('Bağlandı:', socket.id);
 
-  // Lobi listesi gönder
   socket.on('get-lobbies', () => {
     socket.emit('lobbies', getPublicRooms());
   });
@@ -50,31 +56,46 @@ io.on('connection', (socket) => {
     socket.join(code);
     socket.roomCode = code;
     socket.username = username;
+    console.log('Oda oluşturuldu:', code, '| Gizli:', isPrivate, '| Sahip:', username);
     socket.emit('room-created', { code, members: rooms[code].members });
-    // Public ise lobi listesini güncelle
-    io.emit('lobbies', getPublicRooms());
+    broadcastLobbies();
   });
 
   socket.on('join-room', ({ code, username, password }) => {
     code = code.toUpperCase();
-    if (!rooms[code]) { socket.emit('error-msg', 'Oda bulunamadı'); return; }
-    if (rooms[code].isPrivate && rooms[code].password !== password) {
-      socket.emit('error-msg', 'Yanlış şifre!');
+    const room = rooms[code];
+
+    if (!room) {
+      socket.emit('error-msg', 'Oda bulunamadı');
       return;
     }
-    rooms[code].members.push({ id: socket.id, username, isHost: false });
+
+    if (room.isPrivate) {
+      if (password === undefined || password === '') {
+        socket.emit('error-msg', 'Şifre gerekli');
+        return;
+      }
+      if (room.password !== password) {
+        socket.emit('error-msg', 'Yanlış şifre!');
+        return;
+      }
+    }
+
+    room.members.push({ id: socket.id, username, isHost: false });
     socket.join(code);
     socket.roomCode = code;
     socket.username = username;
+    console.log(username, 'odaya katıldı:', code);
+
     socket.emit('room-joined', {
       code,
-      members: rooms[code].members,
-      video: rooms[code].video,
-      playing: rooms[code].playing,
-      currentTime: rooms[code].currentTime
+      members: room.members,
+      video: room.video,
+      playing: room.playing,
+      currentTime: room.currentTime
     });
-    socket.to(code).emit('member-joined', { username, members: rooms[code].members });
-    io.emit('lobbies', getPublicRooms());
+    socket.to(code).emit('member-joined', { username, members: room.members });
+    broadcastLobbies();
   });
 
   socket.on('load-video', ({ url }) => {
@@ -85,7 +106,7 @@ io.on('connection', (socket) => {
     rooms[code].currentTime = 0;
     rooms[code].lastUpdate = Date.now();
     io.to(code).emit('video-loaded', { url });
-    io.emit('lobbies', getPublicRooms());
+    broadcastLobbies();
   });
 
   socket.on('video-play', ({ currentTime }) => {
@@ -124,7 +145,7 @@ io.on('connection', (socket) => {
     io.to(targetId).emit('kicked');
     io.to(code).emit('member-left', { username: target.username, members: rooms[code].members });
     io.to(code).emit('chat-msg', { username: '🔴 Sistem', msg: target.username + ' odadan atıldı' });
-    io.emit('lobbies', getPublicRooms());
+    broadcastLobbies();
   });
 
   socket.on('chat-msg', ({ msg }) => {
@@ -139,7 +160,7 @@ io.on('connection', (socket) => {
     rooms[code].members = rooms[code].members.filter(m => m.id !== socket.id);
     if (rooms[code].members.length === 0) {
       delete rooms[code];
-      io.emit('lobbies', getPublicRooms());
+      broadcastLobbies();
       return;
     }
     if (rooms[code].host === socket.id) {
@@ -149,7 +170,7 @@ io.on('connection', (socket) => {
       io.to(code).emit('host-changed', { newHost: newHost.username });
     }
     io.to(code).emit('member-left', { username: socket.username, members: rooms[code].members });
-    io.emit('lobbies', getPublicRooms());
+    broadcastLobbies();
   });
 
 });
