@@ -138,7 +138,7 @@ function enterRoom(members) {
 
   if (state.isHost) {
     document.getElementById('placeholder-text').textContent = 'Video seç ve başlat';
-    document.getElementById('placeholder-sub').textContent = 'Aşağıya YouTube veya MP4 linki yapıştır';
+    document.getElementById('placeholder-sub').textContent = 'YouTube, Kick, MP4 linki yapıştır';
   }
 
   renderMembers(members);
@@ -173,15 +173,45 @@ function kickMember(targetId, username) {
   socket.emit('kick-member', { targetId });
 }
 
-// ——— VİDEO ———
+// ——— VİDEO KAYNAK TESPİTİ ———
+
+function getYouTubeId(url) {
+  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+function getKickUsername(url) {
+  // kick.com/kullaniciadi veya kick.com/kullaniciadi/... formatı
+  const m = url.match(/kick\.com\/([A-Za-z0-9_]+)/);
+  return m ? m[1] : null;
+}
+
+function getTwitchUsername(url) {
+  const m = url.match(/twitch\.tv\/([A-Za-z0-9_]+)/);
+  return m ? m[1] : null;
+}
+
+function isMp4(url) {
+  return /\.(mp4|webm|ogg)(\?|$)/i.test(url);
+}
+
+function detectVideoType(url) {
+  if (getYouTubeId(url)) return 'youtube';
+  if (getKickUsername(url)) return 'kick';
+  if (getTwitchUsername(url)) return 'twitch';
+  if (isMp4(url)) return 'mp4';
+  return null;
+}
+
+// ——— VİDEO YÜKLE ———
 
 function loadVideo() {
   const url = document.getElementById('video-url').value.trim();
   if (!url) { showErr('err-video', true); return; }
-  const ytId = getYouTubeId(url);
-  const isMp4 = /\.(mp4|webm|ogg)(\?|$)/i.test(url);
-  if (!ytId && !isMp4) {
-    document.getElementById('err-video').textContent = 'Geçerli bir YouTube veya MP4 linki gir';
+
+  const type = detectVideoType(url);
+  if (!type) {
+    document.getElementById('err-video').textContent = 'YouTube, Kick, Twitch veya MP4 linki gir';
     showErr('err-video', true);
     return;
   }
@@ -192,18 +222,38 @@ function loadVideo() {
 function renderVideo(url) {
   document.getElementById('video-placeholder').style.display = 'none';
   const yt = document.getElementById('yt-frame');
-  const mp4 = document.getElementById('mp4-player');
-  const ytId = getYouTubeId(url);
+  const mp4El = document.getElementById('mp4-player');
+  const type = detectVideoType(url);
 
-  if (ytId) {
-    yt.src = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&enablejsapi=1`;
+  // Hepsini gizle
+  yt.style.display = 'none';
+  mp4El.style.display = 'none';
+  yt.src = '';
+  mp4El.src = '';
+
+  if (type === 'youtube') {
+    const id = getYouTubeId(url);
+    yt.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&enablejsapi=1`;
     yt.style.display = 'block';
-    mp4.style.display = 'none';
-  } else {
-    mp4.src = url;
-    mp4.style.display = 'block';
-    yt.style.display = 'none';
-    attachMp4Events(mp4);
+
+  } else if (type === 'kick') {
+    const user = getKickUsername(url);
+    // Kick embed: player.kick.com/embed/channel/kullaniciadi
+    yt.src = `https://player.kick.com/channel/${user}?autoplay=true&muted=false`;
+    yt.style.display = 'block';
+    addMsg(null, '🟢 Kick yayını açıldı: ' + user, true);
+
+  } else if (type === 'twitch') {
+    const user = getTwitchUsername(url);
+    const parent = window.location.hostname || 'localhost';
+    yt.src = `https://player.twitch.tv/?channel=${user}&parent=${parent}&autoplay=true`;
+    yt.style.display = 'block';
+    addMsg(null, '🟣 Twitch yayını açıldı: ' + user, true);
+
+  } else if (type === 'mp4') {
+    mp4El.src = url;
+    mp4El.style.display = 'block';
+    attachMp4Events(mp4El);
   }
 }
 
@@ -222,11 +272,6 @@ function attachMp4Events(mp4) {
     if (!state.isHost || mp4Syncing) return;
     socket.emit('video-seek', { currentTime: mp4.currentTime });
   });
-}
-
-function getYouTubeId(url) {
-  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/);
-  return m ? m[1] : null;
 }
 
 // ——— SOHBET ———
