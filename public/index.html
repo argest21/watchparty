@@ -28,7 +28,6 @@
     .screen { display: none !important; }
     .screen.active { display: flex !important; }
 
-    /* ===== HOME ===== */
     #screen-home {
       min-height: 100vh;
       flex-direction: column;
@@ -63,7 +62,6 @@
     .hero-title span { color: var(--purple); }
     .hero-sub { font-size: 15px; color: var(--muted); line-height: 1.6; }
 
-    /* İKİ KOLON */
     .home-cols {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -71,7 +69,6 @@
       width: 100%;
     }
 
-    /* KART */
     .home-card {
       background: var(--surface);
       border: 1px solid var(--border2);
@@ -110,13 +107,13 @@
       background: var(--surface2);
       border: 1px solid var(--border2);
       border-radius: var(--r);
+      cursor: pointer;
     }
     .toggle-label { font-size: 13px; font-weight: 500; }
     .toggle {
       position: relative; width: 40px; height: 22px;
       background: var(--surface3); border-radius: 20px;
-      cursor: pointer; transition: background .2s;
-      flex-shrink: 0;
+      transition: background .2s; flex-shrink: 0;
     }
     .toggle.on { background: var(--purple); }
     .toggle::after {
@@ -155,7 +152,6 @@
     .err { font-size: 12px; color: var(--danger); display: none; }
     .err.show { display: block; }
 
-    /* LOBİLER */
     .lobbies-list {
       display: flex; flex-direction: column; gap: 8px;
       max-height: 340px; overflow-y: auto;
@@ -176,16 +172,24 @@
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
+    .lobby-avatar.locked { background: rgba(245,200,66,0.12); color: var(--gold); }
     .lobby-info { flex: 1; min-width: 0; }
-    .lobby-host { font-size: 13px; font-weight: 600; }
-    .lobby-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .lobby-host { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .lobby-meta { font-size: 11px; color: var(--muted); margin-top: 3px; display: flex; align-items: center; gap: 6px; }
     .lobby-live {
       display: inline-flex; align-items: center; gap: 4px;
       background: rgba(74,222,128,0.12); color: var(--green);
       border: 1px solid rgba(74,222,128,0.25);
-      border-radius: 20px; padding: 2px 8px; font-size: 11px; font-weight: 600;
+      border-radius: 20px; padding: 2px 8px; font-size: 10px; font-weight: 600;
     }
     .lobby-live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+    .lobby-lock {
+      display: inline-flex; align-items: center; gap: 3px;
+      background: rgba(245,200,66,0.1); color: var(--gold);
+      border: 1px solid rgba(245,200,66,0.25);
+      border-radius: 20px; padding: 1px 7px;
+      font-size: 10px; font-weight: 600;
+    }
     .btn-enter {
       padding: 7px 14px; background: rgba(139,124,248,0.12);
       border: 1px solid rgba(139,124,248,0.3); border-radius: 8px;
@@ -194,6 +198,20 @@
       transition: all .2s; flex-shrink: 0;
     }
     .btn-enter:hover { background: rgba(139,124,248,0.25); }
+    .btn-enter.locked { background: rgba(245,200,66,0.1); border-color: rgba(245,200,66,0.3); color: var(--gold); }
+    .btn-enter.locked:hover { background: rgba(245,200,66,0.2); }
+    .btn-refresh {
+      padding: 4px 12px;
+      background: rgba(139,124,248,0.1);
+      border: 1px solid rgba(139,124,248,0.25);
+      border-radius: 8px;
+      color: var(--purple);
+      font-size: 12px; font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-refresh:hover { background: rgba(139,124,248,0.25); }
     .lobbies-empty { font-size: 13px; color: var(--muted); text-align: center; padding: 2rem 0; }
 
     .home-footer { font-size: 12px; color: var(--muted); text-align: center; opacity: .55; padding-bottom: 2rem; }
@@ -258,7 +276,6 @@
     .chat-send-btn:hover { opacity: .8; }
     .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--surface3); border: 1px solid var(--border2); color: var(--text); padding: 10px 22px; border-radius: 30px; font-size: 13px; font-weight: 500; display: none; z-index: 9999; box-shadow: 0 8px 30px rgba(0,0,0,0.5); white-space: nowrap; }
 
-    /* ŞİFRE MODAL */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 9998; backdrop-filter: blur(4px); }
     .modal-overlay.show { display: flex; }
     .modal { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--rl); padding: 2rem; width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
@@ -293,30 +310,23 @@
     </div>
 
     <div class="home-cols">
-      <!-- SOL: OLUŞTUR + KATIL -->
       <div style="display:flex;flex-direction:column;gap:16px">
         <div class="home-card">
           <div class="card-title">🎮 Oda Oluştur</div>
-
           <div class="field">
             <label>Kullanıcı adın</label>
             <input id="home-username" type="text" placeholder="Adını gir" maxlength="20" />
             <span class="err" id="err-username">Kullanıcı adı gerekli</span>
           </div>
-
           <div class="toggle-row" onclick="togglePrivate()">
             <span class="toggle-label">🔒 Gizli oda</span>
             <div class="toggle" id="toggle-private"></div>
           </div>
-
           <div class="field" id="password-field" style="display:none">
             <label>Oda şifresi</label>
             <input id="room-password" type="password" placeholder="Şifre belirle" maxlength="20" />
           </div>
-
-          <button class="btn-create" onclick="createRoom()">
-            <span>+ Oda Oluştur</span>
-          </button>
+          <button class="btn-create" onclick="createRoom()">+ Oda Oluştur</button>
         </div>
 
         <div class="home-card">
@@ -330,14 +340,17 @@
         </div>
       </div>
 
-      <!-- SAĞ: LOBİLER -->
+      <!-- LOBİLER -->
       <div class="home-card">
         <div class="card-title" style="justify-content:space-between">
-          <span>🌐 Açık Lobiler</span>
-          <span id="lobby-count" style="font-size:12px;color:var(--purple);font-weight:600"></span>
+          <span>🌐 Tüm Lobiler</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span id="lobby-count" style="font-size:12px;color:var(--purple);font-weight:600"></span>
+            <button class="btn-refresh" id="refresh-btn" onclick="refreshLobbies()">🔄 Yenile</button>
+          </div>
         </div>
         <div class="lobbies-list" id="lobbies-list">
-          <div class="lobbies-empty">Henüz açık lobi yok</div>
+          <div class="lobbies-empty">Henüz lobi yok 👀</div>
         </div>
       </div>
     </div>
@@ -380,7 +393,7 @@
 
       <div class="host-controls" id="host-controls" style="display:none">
         <div class="hc-inner">
-          <input id="video-url" type="text" placeholder="YouTube, Kick (kick.com/kanal), Twitch veya MP4 linki..." />
+          <input id="video-url" type="text" placeholder="YouTube, Kick, Twitch veya MP4 linki..." />
           <button class="btn-load" onclick="loadVideo()">▶ Yükle</button>
         </div>
         <span class="err" id="err-video"></span>
@@ -420,7 +433,7 @@
     <div class="field">
       <label>Şifre</label>
       <input id="modal-password" type="password" placeholder="Şifreyi gir" maxlength="20" onkeydown="if(event.key==='Enter') modalJoin()" />
-      <span class="err" id="err-modal">Yanlış şifre!</span>
+      <span class="err" id="err-modal"></span>
     </div>
     <div class="modal-btns">
       <button class="btn-modal-cancel" onclick="closeModal()">İptal</button>
@@ -430,7 +443,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-
 <script src="/socket.io/socket.io.js"></script>
 <script src="app.js"></script>
 </body>
