@@ -10,18 +10,27 @@ app.use(express.static('public'));
 
 const rooms = {};
 
+function genCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return rooms[code] ? genCode() : code;
+}
+
 io.on('connection', (socket) => {
+  console.log('Bağlandı:', socket.id);
 
   socket.on('create-room', ({ username }) => {
     const code = genCode();
     rooms[code] = {
       host: socket.id,
-      members: [{ id: socket.id, username }],
+      members: [{ id: socket.id, username, isHost: true }],
       video: null
     };
     socket.join(code);
     socket.roomCode = code;
     socket.username = username;
+    console.log(`Oda oluşturuldu: ${code} — ${username}`);
     socket.emit('room-created', { code, members: rooms[code].members });
   });
 
@@ -31,21 +40,26 @@ io.on('connection', (socket) => {
       socket.emit('error-msg', 'Oda bulunamadı');
       return;
     }
-    rooms[code].members.push({ id: socket.id, username });
+    rooms[code].members.push({ id: socket.id, username, isHost: false });
     socket.join(code);
     socket.roomCode = code;
     socket.username = username;
+    console.log(`${username} odaya katıldı: ${code}`);
     socket.emit('room-joined', {
       code,
       members: rooms[code].members,
       video: rooms[code].video
     });
-    socket.to(code).emit('member-joined', { username, members: rooms[code].members });
+    socket.to(code).emit('member-joined', {
+      username,
+      members: rooms[code].members
+    });
   });
 
   socket.on('load-video', ({ url }) => {
     const code = socket.roomCode;
-    if (!rooms[code] || rooms[code].host !== socket.id) return;
+    if (!rooms[code]) return;
+    if (rooms[code].host !== socket.id) return;
     rooms[code].video = url;
     io.to(code).emit('video-loaded', { url });
   });
@@ -53,31 +67,38 @@ io.on('connection', (socket) => {
   socket.on('chat-msg', ({ msg }) => {
     const code = socket.roomCode;
     if (!rooms[code]) return;
-    io.to(code).emit('chat-msg', { username: socket.username, msg });
+    io.to(code).emit('chat-msg', {
+      username: socket.username,
+      msg
+    });
   });
 
   socket.on('disconnect', () => {
     const code = socket.roomCode;
-    if (!rooms[code]) return;
+    if (!code || !rooms[code]) return;
+
     rooms[code].members = rooms[code].members.filter(m => m.id !== socket.id);
+    console.log(`${socket.username} ayrıldı: ${code}`);
+
     if (rooms[code].members.length === 0) {
       delete rooms[code];
-    } else {
-      if (rooms[code].host === socket.id) {
-        rooms[code].host = rooms[code].members[0].id;
-        io.to(code).emit('host-changed', { newHost: rooms[code].members[0].username });
-      }
-      io.to(code).emit('member-left', { username: socket.username, members: rooms[code].members });
+      console.log(`Oda silindi: ${code}`);
+      return;
     }
+
+    if (rooms[code].host === socket.id) {
+      const newHost = rooms[code].members[0];
+      rooms[code].host = newHost.id;
+      newHost.isHost = true;
+      io.to(code).emit('host-changed', { newHost: newHost.username });
+    }
+
+    io.to(code).emit('member-left', {
+      username: socket.username,
+      members: rooms[code].members
+    });
   });
 });
 
-function genCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
-  return rooms[code] ? genCode() : code;
-}
-
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log('WatchParty çalışıyor: port ' + PORT));
+server.listen(PORT, () => console.log('WatchParty çalışıyor — port: ' + PORT));
