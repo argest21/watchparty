@@ -7,7 +7,7 @@ let state = {
 };
 
 let mp4Syncing = false;
-let pendingJoin = null; // şifreli odaya katılım için
+let pendingJoin = null;
 let privateMode = false;
 
 // ——— TOGGLE ———
@@ -23,7 +23,8 @@ function togglePrivate() {
 socket.on('lobbies', (lobbies) => {
   const list = document.getElementById('lobbies-list');
   const count = document.getElementById('lobby-count');
-  count.textContent = lobbies.length + ' aktif';
+  if (!list) return;
+  count.textContent = lobbies.length > 0 ? lobbies.length + ' aktif' : '0 aktif';
   if (lobbies.length === 0) {
     list.innerHTML = '<div class="lobbies-empty">Henüz açık lobi yok 👀</div>';
     return;
@@ -56,6 +57,7 @@ function joinLobby(code) {
   }
   showErr('err-username', false);
   state.username = u;
+  pendingJoin = { code, username: u };
   socket.emit('join-room', { code, username: u, password: '' });
 }
 
@@ -65,7 +67,7 @@ function createRoom() {
   if (!u) { showErr('err-username', true); return; }
   showErr('err-username', false);
   state.username = u;
-  const pass = privateMode ? document.getElementById('room-password').value : '';
+  const pass = privateMode ? (document.getElementById('room-password').value || '') : '';
   socket.emit('create-room', { username: u, isPrivate: privateMode, password: pass });
 }
 
@@ -83,8 +85,8 @@ function joinByCode() {
 }
 
 // ——— MODAL ———
-function openModal(code, hostName) {
-  document.getElementById('modal-sub').textContent = (hostName || code) + ' odasına katılmak için şifre gir';
+function openModal(hostLabel) {
+  document.getElementById('modal-sub').textContent = (hostLabel || '') + ' odasına girmek için şifre gir';
   document.getElementById('modal-password').value = '';
   showErr('err-modal', false);
   document.getElementById('password-modal').classList.add('show');
@@ -99,6 +101,7 @@ function closeModal() {
 function modalJoin() {
   if (!pendingJoin) return;
   const pass = document.getElementById('modal-password').value;
+  if (!pass) { showErr('err-modal', true); document.getElementById('err-modal').textContent = 'Şifre boş olamaz'; return; }
   socket.emit('join-room', { code: pendingJoin.code, username: pendingJoin.username, password: pass });
 }
 
@@ -125,21 +128,20 @@ socket.on('room-joined', ({ code, members, video, playing, currentTime }) => {
 });
 
 socket.on('error-msg', (msg) => {
-  if (msg === 'Yanlış şifre!') {
-    if (pendingJoin) {
-      openModal(pendingJoin.code, '');
-      showErr('err-modal', true);
-    }
+  if (msg === 'Şifre gerekli') {
+    openModal(pendingJoin ? pendingJoin.code : '');
     return;
   }
-  if (msg === 'Oda bulunamadı' && pendingJoin) {
-    // şifreli oda dene — modal aç
-    openModal(pendingJoin.code, '');
+  if (msg === 'Yanlış şifre!') {
+    openModal(pendingJoin ? pendingJoin.code : '');
+    showErr('err-modal', true);
+    document.getElementById('err-modal').textContent = 'Yanlış şifre!';
     return;
   }
   const el = document.getElementById('err-server');
   el.textContent = msg;
   el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
 });
 
 socket.on('member-joined', ({ username, members }) => {
@@ -300,7 +302,6 @@ function renderVideo(url) {
     yt.style.display = 'block';
   } else if (type === 'kick') {
     const ch = getKickChannel(url);
-    // Kick'in doğru embed URL'si
     yt.src = `https://player.kick.com/${ch}`;
     yt.style.display = 'block';
     addMsg(null, '🟢 Kick yayını: ' + ch, true);
@@ -342,7 +343,13 @@ function addMsg(who, msg, sys = false) {
   if (sys) {
     div.innerHTML = `<span class="chat-sys">${esc(msg)}</span>`;
   } else {
-    div.innerHTML = `<div class="chat-msg-header"><span class="chat-who">${esc(who)}</span><span class="chat-time">${t}</span></div><div class="chat-text">${esc(msg)}</div>`;
+    div.innerHTML = `
+      <div class="chat-msg-header">
+        <span class="chat-who">${esc(who)}</span>
+        <span class="chat-time">${t}</span>
+      </div>
+      <div class="chat-text">${esc(msg)}</div>
+    `;
   }
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
@@ -358,18 +365,21 @@ function leaveRoom() { location.reload(); }
 
 function showToast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg; t.style.display = 'block';
+  t.textContent = msg;
+  t.style.display = 'block';
   setTimeout(() => t.style.display = 'none', 2500);
 }
 
 function showErr(id, show) {
   const el = document.getElementById(id);
-  if (show) el.classList.add('show'); else el.classList.remove('show');
+  if (show) el.classList.add('show');
+  else el.classList.remove('show');
 }
 
 function esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// Başlangıçta lobi listesini al
+// Başlangıçta ve her 5 saniyede lobi güncelle
 socket.emit('get-lobbies');
+setInterval(() => socket.emit('get-lobbies'), 5000);
