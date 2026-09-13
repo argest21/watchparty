@@ -1,6 +1,6 @@
 const socket = io();
 
-let state = { username: '', roomCode: '', isHost: false };
+let state = { username: '', roomCode: '', isHost: false, isMuted: false };
 let mp4Syncing = false;
 let pendingJoin = null;
 let privateMode = false;
@@ -8,7 +8,6 @@ let privateMode = false;
 function togglePrivate() {
   privateMode = !privateMode;
   document.getElementById('toggle-private').classList.toggle('on', privateMode);
-  document.getElementById('password-field').style.display = privateMode ? 'flex' : 'none';
 }
 
 // ——— LOBİLER ———
@@ -17,28 +16,25 @@ socket.on('lobbies', (lobbies) => {
   const count = document.getElementById('lobby-count');
   if (!list) return;
   count.textContent = lobbies.length + ' aktif';
-  if (lobbies.length === 0) {
-    list.innerHTML = '<div class="lobbies-empty">Henüz lobi yok 👀</div>';
-    return;
-  }
+  if (lobbies.length === 0) { list.innerHTML = '<div class="lobbies-empty">Henüz lobi yok 👀</div>'; return; }
   list.innerHTML = '';
   lobbies.forEach(l => {
+    const isFull = l.memberCount >= l.maxMembers;
     const div = document.createElement('div');
     div.className = 'lobby-item';
     div.innerHTML = `
       <div class="lobby-avatar ${l.isPrivate ? 'locked' : ''}">${l.isPrivate ? '🔒' : l.host.slice(0,2).toUpperCase()}</div>
       <div class="lobby-info">
-        <div class="lobby-host">
-          ${esc(l.host)}'in odası
-          ${l.isPrivate ? '<span class="lobby-lock">🔒 Gizli</span>' : ''}
-        </div>
+        <div class="lobby-name">${esc(l.name)}</div>
         <div class="lobby-meta">
-          👥 ${l.memberCount} kişi
+          👥 ${l.memberCount}/${l.maxMembers}
+          ${l.isPrivate ? '<span class="lobby-lock">🔒 Gizli</span>' : ''}
+          ${isFull ? '<span class="lobby-full">🚫 Dolu</span>' : ''}
           ${l.hasVideo ? '<span class="lobby-live"><span class="lobby-live-dot"></span>Canlı</span>' : ''}
         </div>
       </div>
-      <button class="btn-enter ${l.isPrivate ? 'locked' : ''}" onclick="joinLobby('${l.code}', ${l.isPrivate})">
-        ${l.isPrivate ? '🔑 Gir' : 'Katıl'}
+      <button class="btn-enter ${l.isPrivate ? 'locked' : ''}" ${isFull ? 'disabled' : ''} onclick="joinLobby('${l.code}', ${l.isPrivate})">
+        ${isFull ? 'Dolu' : l.isPrivate ? '🔑 Gir' : 'Katıl'}
       </button>
     `;
     list.appendChild(div);
@@ -47,13 +43,9 @@ socket.on('lobbies', (lobbies) => {
 
 function refreshLobbies() {
   const btn = document.getElementById('refresh-btn');
-  btn.textContent = '⏳';
-  btn.style.opacity = '.5';
+  btn.textContent = '⏳'; btn.style.opacity = '.5';
   socket.emit('get-lobbies');
-  setTimeout(() => {
-    btn.textContent = '🔄 Yenile';
-    btn.style.opacity = '1';
-  }, 800);
+  setTimeout(() => { btn.textContent = '🔄 Yenile'; btn.style.opacity = '1'; }, 800);
 }
 
 function joinLobby(code, isPrivate) {
@@ -62,20 +54,18 @@ function joinLobby(code, isPrivate) {
   showErr('err-username', false);
   state.username = u;
   pendingJoin = { code, username: u };
-  if (isPrivate) {
-    openModal(code);
-  } else {
-    socket.emit('join-room', { code, username: u, password: '' });
-  }
+  if (isPrivate) { openModal(code); } else { socket.emit('join-room', { code, username: u, password: '' }); }
 }
 
 function createRoom() {
   const u = document.getElementById('home-username').value.trim();
   if (!u) { showErr('err-username', true); return; }
   showErr('err-username', false);
-  state.username = u;
+  const name = document.getElementById('room-name').value.trim() || (u + "'in odası");
+  const maxMembers = parseInt(document.getElementById('room-max').value) || 10;
   const pass = privateMode ? (document.getElementById('room-password').value || '') : '';
-  socket.emit('create-room', { username: u, isPrivate: privateMode, password: pass });
+  socket.emit('create-room', { username: u, isPrivate: privateMode, password: pass, name, maxMembers });
+  state.username = u;
 }
 
 function joinByCode() {
@@ -106,51 +96,61 @@ function closeModal() {
 function modalJoin() {
   if (!pendingJoin) return;
   const pass = document.getElementById('modal-password').value;
-  if (!pass) {
-    document.getElementById('err-modal').textContent = 'Şifre boş olamaz';
-    showErr('err-modal', true);
-    return;
-  }
+  if (!pass) { document.getElementById('err-modal').textContent = 'Şifre boş olamaz'; showErr('err-modal', true); return; }
   socket.emit('join-room', { code: pendingJoin.code, username: pendingJoin.username, password: pass });
 }
 
-socket.on('room-created', ({ code, members }) => {
-  state.roomCode = code; state.isHost = true; enterRoom(members);
+// ——— SOCKET OLAYLARI ———
+socket.on('room-created', ({ code, members, name }) => {
+  state.roomCode = code; state.isHost = true; enterRoom(members, name);
 });
 
-socket.on('room-joined', ({ code, members, video, playing, currentTime }) => {
+socket.on('room-joined', ({ code, members, video, playing, currentTime, messages, name }) => {
   state.roomCode = code; state.isHost = false;
-  closeModal();
-  enterRoom(members);
+  closeModal(); enterRoom(members, name);
+  if (messages) messages.forEach(m => addMsg(m.username, m.msg, false, m.id));
   if (video) {
     renderVideo(video);
     const mp4 = document.getElementById('mp4-player');
-    if (mp4.style.display !== 'none') {
-      mp4.currentTime = currentTime || 0;
-      if (playing) mp4.play();
-    }
+    if (mp4.style.display !== 'none') { mp4.currentTime = currentTime || 0; if (playing) mp4.play(); }
   }
 });
 
 socket.on('error-msg', (msg) => {
   if (msg === 'Şifre gerekli') { openModal(pendingJoin ? pendingJoin.code : ''); return; }
   if (msg === 'Yanlış şifre!') {
-    if (!document.getElementById('password-modal').classList.contains('show')) {
-      openModal(pendingJoin ? pendingJoin.code : '');
-    }
-    document.getElementById('err-modal').textContent = '❌ Yanlış şifre!';
-    showErr('err-modal', true);
-    return;
+    if (!document.getElementById('password-modal').classList.contains('show')) openModal(pendingJoin ? pendingJoin.code : '');
+    document.getElementById('err-modal').textContent = '❌ Yanlış şifre!'; showErr('err-modal', true); return;
   }
   const el = document.getElementById('err-server');
-  el.textContent = msg;
-  el.classList.add('show');
+  el.textContent = msg; el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 3000);
 });
 
 socket.on('member-joined', ({ username, members }) => { renderMembers(members); addMsg(null, username + ' odaya katıldı 👋', true); });
 socket.on('member-left', ({ username, members }) => { renderMembers(members); addMsg(null, username + ' odadan ayrıldı', true); });
-socket.on('host-changed', ({ newHost }) => { addMsg(null, newHost + ' yeni oda sahibi oldu 👑', true); });
+socket.on('member-updated', ({ members }) => { renderMembers(members); });
+
+socket.on('host-changed', ({ newHost, members }) => {
+  if (members) renderMembers(members);
+  addMsg(null, newHost + ' yeni oda sahibi oldu 👑', true);
+});
+
+socket.on('you-are-host', () => {
+  state.isHost = true;
+  document.getElementById('badge-host').style.display = 'inline-flex';
+  document.getElementById('host-controls').style.display = 'flex';
+  document.getElementById('sync-bar').style.display = 'none';
+  showToast('👑 Artık oda sahibisin!');
+});
+
+socket.on('muted', ({ muted }) => {
+  state.isMuted = muted;
+  document.getElementById('badge-muted').style.display = muted ? 'inline-flex' : 'none';
+  document.getElementById('muted-bar').classList.toggle('show', muted);
+  document.getElementById('chat-input').disabled = muted;
+  showToast(muted ? '🔇 Susturuldunuz' : '🔊 Sesiniz açıldı');
+});
 
 socket.on('video-loaded', ({ url }) => {
   renderVideo(url);
@@ -173,15 +173,26 @@ socket.on('video-seek', ({ currentTime }) => {
 });
 
 socket.on('kicked', () => { showToast('❌ Oda sahibi tarafından atıldın!'); setTimeout(() => location.reload(), 2000); });
-socket.on('chat-msg', ({ username, msg }) => { addMsg(username, msg); });
 
-function enterRoom(members) {
+socket.on('chat-msg', ({ id, username, msg, sys }) => {
+  if (sys) addMsg(null, msg, true);
+  else addMsg(username, msg, false, id);
+});
+
+socket.on('msg-deleted', ({ msgId }) => {
+  const el = document.querySelector(`[data-msg-id="${msgId}"]`);
+  if (el) el.remove();
+});
+
+// ——— ODA ———
+function enterRoom(members, name) {
   document.getElementById('screen-home').classList.remove('active');
   document.getElementById('screen-home').style.display = 'none';
   document.getElementById('screen-room').style.display = 'flex';
   document.getElementById('screen-room').classList.add('active');
   document.getElementById('badge-username').textContent = '👤 ' + state.username;
   document.getElementById('badge-code').textContent = state.roomCode;
+  document.getElementById('room-name-badge').textContent = name || '';
   document.getElementById('badge-host').style.display = state.isHost ? 'inline-flex' : 'none';
   document.getElementById('host-controls').style.display = state.isHost ? 'flex' : 'none';
   document.getElementById('sync-bar').style.display = state.isHost ? 'none' : 'flex';
@@ -202,12 +213,19 @@ function renderMembers(members) {
     div.className = 'member-item';
     const isMe = m.username === state.username;
     div.innerHTML = `
-      <div class="avatar ${m.isHost ? 'host' : ''}">${m.username.slice(0,2).toUpperCase()}</div>
-      <div style="flex:1;min-width:0">
-        <div class="member-name">${esc(m.username)}${isMe ? ' <span style="color:var(--muted);font-size:11px">(sen)</span>' : ''}</div>
+      <div class="avatar ${m.isHost ? 'host' : m.muted ? 'muted' : ''}">${m.username.slice(0,2).toUpperCase()}</div>
+      <div class="member-info">
+        <div class="member-name">${esc(m.username)}${isMe ? ' <span style="color:var(--muted);font-size:10px">(sen)</span>' : ''}</div>
         ${m.isHost ? '<div class="member-tag">👑 Oda Sahibi</div>' : ''}
+        ${m.muted && !m.isHost ? '<div class="member-muted-tag">🔇 Susturuldu</div>' : ''}
       </div>
-      ${state.isHost && !isMe && !m.isHost ? `<button class="kick-btn" onclick="kickMember('${m.id}','${esc(m.username)}')">At</button>` : ''}
+      ${state.isHost && !isMe ? `
+        <div class="member-actions">
+          <button class="action-btn mute" onclick="muteMember('${m.id}')">${m.muted ? '🔊' : '🔇'}</button>
+          ${!m.isHost ? `<button class="action-btn transfer" onclick="transferHost('${m.id}','${esc(m.username)}')">👑</button>` : ''}
+          ${!m.isHost ? `<button class="action-btn kick" onclick="kickMember('${m.id}','${esc(m.username)}')">At</button>` : ''}
+        </div>
+      ` : ''}
     `;
     el.appendChild(div);
   });
@@ -218,6 +236,20 @@ function kickMember(targetId, username) {
   socket.emit('kick-member', { targetId });
 }
 
+function muteMember(targetId) {
+  socket.emit('mute-member', { targetId });
+}
+
+function transferHost(targetId, username) {
+  if (!confirm(username + ' kişisine oda sahipliğini devretmek istiyor musun?')) return;
+  socket.emit('transfer-host', { targetId });
+  state.isHost = false;
+  document.getElementById('badge-host').style.display = 'none';
+  document.getElementById('host-controls').style.display = 'none';
+  document.getElementById('sync-bar').style.display = 'flex';
+}
+
+// ——— VİDEO ———
 function getYouTubeId(url) {
   const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/);
   return m ? m[1] : null;
@@ -273,7 +305,9 @@ function attachMp4Events(mp4) {
   mp4.addEventListener('seeked', () => { if (!state.isHost || mp4Syncing) return; socket.emit('video-seek', { currentTime: mp4.currentTime }); });
 }
 
+// ——— SOHBET ———
 function sendChat() {
+  if (state.isMuted) { showToast('🔇 Susturuldunuz!'); return; }
   const inp = document.getElementById('chat-input');
   const msg = inp.value.trim();
   if (!msg) return;
@@ -281,20 +315,33 @@ function sendChat() {
   inp.value = '';
 }
 
-function addMsg(who, msg, sys = false) {
+function addMsg(who, msg, sys = false, msgId = null) {
   const box = document.getElementById('chat-messages');
   const div = document.createElement('div');
   div.className = 'chat-msg';
+  if (msgId) div.setAttribute('data-msg-id', msgId);
   const t = new Date().getHours() + ':' + String(new Date().getMinutes()).padStart(2, '0');
   if (sys) {
     div.innerHTML = `<span class="chat-sys">${esc(msg)}</span>`;
   } else {
-    div.innerHTML = `<div class="chat-msg-header"><span class="chat-who">${esc(who)}</span><span class="chat-time">${t}</span></div><div class="chat-text">${esc(msg)}</div>`;
+    div.innerHTML = `
+      <div class="chat-msg-header">
+        <span class="chat-who">${esc(who)}</span>
+        <span class="chat-time">${t}</span>
+      </div>
+      <div class="chat-text">${esc(msg)}</div>
+      ${state.isHost && msgId ? `<button class="delete-msg-btn" onclick="deleteMsg('${msgId}')" title="Mesajı sil">✕</button>` : ''}
+    `;
   }
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
 }
 
+function deleteMsg(msgId) {
+  socket.emit('delete-msg', { msgId });
+}
+
+// ——— YARDIMCILAR ———
 function copyCode() {
   if (navigator.clipboard) navigator.clipboard.writeText(state.roomCode).catch(() => {});
   showToast('✓ Kod kopyalandı: ' + state.roomCode);
