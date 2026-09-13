@@ -5,7 +5,6 @@ let mp4Syncing = false;
 let pendingJoin = null;
 let privateMode = false;
 
-// ——— TOGGLE ———
 function togglePrivate() {
   privateMode = !privateMode;
   document.getElementById('toggle-private').classList.toggle('on', privateMode);
@@ -18,18 +17,16 @@ socket.on('lobbies', (lobbies) => {
   const count = document.getElementById('lobby-count');
   if (!list) return;
   count.textContent = lobbies.length + ' aktif';
-
   if (lobbies.length === 0) {
     list.innerHTML = '<div class="lobbies-empty">Henüz lobi yok 👀</div>';
     return;
   }
-
   list.innerHTML = '';
   lobbies.forEach(l => {
     const div = document.createElement('div');
     div.className = 'lobby-item';
     div.innerHTML = `
-      <div class="lobby-avatar">${l.isPrivate ? '🔒' : l.host.slice(0,2).toUpperCase()}</div>
+      <div class="lobby-avatar ${l.isPrivate ? 'locked' : ''}">${l.isPrivate ? '🔒' : l.host.slice(0,2).toUpperCase()}</div>
       <div class="lobby-info">
         <div class="lobby-host">
           ${esc(l.host)}'in odası
@@ -48,13 +45,23 @@ socket.on('lobbies', (lobbies) => {
   });
 });
 
+function refreshLobbies() {
+  const btn = document.getElementById('refresh-btn');
+  btn.textContent = '⏳';
+  btn.style.opacity = '.5';
+  socket.emit('get-lobbies');
+  setTimeout(() => {
+    btn.textContent = '🔄 Yenile';
+    btn.style.opacity = '1';
+  }, 800);
+}
+
 function joinLobby(code, isPrivate) {
   const u = document.getElementById('home-username').value.trim();
   if (!u) { showErr('err-username', true); document.getElementById('home-username').focus(); return; }
   showErr('err-username', false);
   state.username = u;
   pendingJoin = { code, username: u };
-
   if (isPrivate) {
     openModal(code);
   } else {
@@ -62,7 +69,6 @@ function joinLobby(code, isPrivate) {
   }
 }
 
-// ——— OLUŞTUR ———
 function createRoom() {
   const u = document.getElementById('home-username').value.trim();
   if (!u) { showErr('err-username', true); return; }
@@ -72,7 +78,6 @@ function createRoom() {
   socket.emit('create-room', { username: u, isPrivate: privateMode, password: pass });
 }
 
-// ——— KOD İLE KATIL ———
 function joinByCode() {
   const u = document.getElementById('home-username').value.trim();
   const c = document.getElementById('home-code').value.trim().toUpperCase();
@@ -85,7 +90,6 @@ function joinByCode() {
   socket.emit('join-room', { code: c, username: u, password: '' });
 }
 
-// ——— MODAL ———
 function openModal(code) {
   document.getElementById('modal-sub').textContent = code + ' kodlu odaya girmek için şifre gir';
   document.getElementById('modal-password').value = '';
@@ -103,14 +107,13 @@ function modalJoin() {
   if (!pendingJoin) return;
   const pass = document.getElementById('modal-password').value;
   if (!pass) {
-    showErr('err-modal', true);
     document.getElementById('err-modal').textContent = 'Şifre boş olamaz';
+    showErr('err-modal', true);
     return;
   }
   socket.emit('join-room', { code: pendingJoin.code, username: pendingJoin.username, password: pass });
 }
 
-// ——— SOCKET OLAYLARI ———
 socket.on('room-created', ({ code, members }) => {
   state.roomCode = code; state.isHost = true; enterRoom(members);
 });
@@ -135,8 +138,8 @@ socket.on('error-msg', (msg) => {
     if (!document.getElementById('password-modal').classList.contains('show')) {
       openModal(pendingJoin ? pendingJoin.code : '');
     }
-    showErr('err-modal', true);
     document.getElementById('err-modal').textContent = '❌ Yanlış şifre!';
+    showErr('err-modal', true);
     return;
   }
   const el = document.getElementById('err-server');
@@ -172,7 +175,6 @@ socket.on('video-seek', ({ currentTime }) => {
 socket.on('kicked', () => { showToast('❌ Oda sahibi tarafından atıldın!'); setTimeout(() => location.reload(), 2000); });
 socket.on('chat-msg', ({ username, msg }) => { addMsg(username, msg); });
 
-// ——— ODA ———
 function enterRoom(members) {
   document.getElementById('screen-home').classList.remove('active');
   document.getElementById('screen-home').style.display = 'none';
@@ -216,7 +218,6 @@ function kickMember(targetId, username) {
   socket.emit('kick-member', { targetId });
 }
 
-// ——— VİDEO ———
 function getYouTubeId(url) {
   const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/);
   return m ? m[1] : null;
@@ -272,7 +273,6 @@ function attachMp4Events(mp4) {
   mp4.addEventListener('seeked', () => { if (!state.isHost || mp4Syncing) return; socket.emit('video-seek', { currentTime: mp4.currentTime }); });
 }
 
-// ——— SOHBET ———
 function sendChat() {
   const inp = document.getElementById('chat-input');
   const msg = inp.value.trim();
@@ -295,7 +295,6 @@ function addMsg(who, msg, sys = false) {
   box.scrollTop = box.scrollHeight;
 }
 
-// ——— YARDIMCILAR ———
 function copyCode() {
   if (navigator.clipboard) navigator.clipboard.writeText(state.roomCode).catch(() => {});
   showToast('✓ Kod kopyalandı: ' + state.roomCode);
