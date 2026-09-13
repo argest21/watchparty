@@ -9,6 +9,7 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const rooms = {};
+const bans = {}; // { roomCode: { username: unbanTime } }
 
 function genCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -19,8 +20,7 @@ function genCode() {
 
 function getAllRooms() {
   return Object.entries(rooms).map(([code, r]) => ({
-    code,
-    name: r.name,
+    code, name: r.name,
     host: r.members.find(m => m.isHost)?.username || '?',
     memberCount: r.members.length,
     maxMembers: r.maxMembers,
@@ -29,31 +29,34 @@ function getAllRooms() {
   }));
 }
 
-function broadcastLobbies() {
-  io.emit('lobbies', getAllRooms());
+function broadcastLobbies() { io.emit('lobbies', getAllRooms()); }
+
+function isModOrHost(room, socketId) {
+  const m = room.members.find(m => m.id === socketId);
+  return m && (m.isHost || m.isMod);
 }
+
+// Kelime tahmin oyunu kelimeleri
+const WORDS = ['araba','kitap','elma','deniz','güneş','kalem','masa','sandalye','bilgisayar','telefon','müzik','film','spor','yemek','arkadaş','okul','ev','bahçe','çiçek','kedi','köpek','kuş','balık','ağaç','gökyüzü'];
 
 io.on('connection', (socket) => {
 
-  socket.on('get-lobbies', () => {
-    socket.emit('lobbies', getAllRooms());
-  });
+  socket.on('get-lobbies', () => { socket.emit('lobbies', getAllRooms()); });
 
-  socket.on('create-room', ({ username, isPrivate, password, name, maxMembers }) => {
+  socket.on('create-room', ({ username, isPrivate, password, name, maxMembers, avatarColor, usernameColor }) => {
     const code = genCode();
     rooms[code] = {
       host: socket.id,
-      members: [{ id: socket.id, username, isHost: true, muted: false }],
-      video: null,
-      playing: false,
-      currentTime: 0,
-      lastUpdate: Date.now(),
-      isPrivate: !!isPrivate,
-      password: isPrivate ? (password || '') : '',
+      members: [{ id: socket.id, username, isHost: true, isMod: false, muted: false, avatarColor: avatarColor || '#8b7cf8', usernameColor: usernameColor || '#8b7cf8' }],
+      video: null, playing: false, currentTime: 0, lastUpdate: Date.now(),
+      isPrivate: !!isPrivate, password: isPrivate ? (password || '') : '',
       name: name || (username + "'in odası"),
       maxMembers: maxMembers || 10,
-      messages: []
+      messages: [],
+      queue: [],
+      game: null
     };
+    bans[code] = {};
     socket.join(code);
     socket.roomCode = code;
     socket.username = username;
@@ -61,34 +64,29 @@ io.on('connection', (socket) => {
     broadcastLobbies();
   });
 
-  socket.on('join-room', ({ code, username, password }) => {
+  socket.on('join-room', ({ code, username, password, avatarColor, usernameColor }) => {
     code = code.toUpperCase();
     const room = rooms[code];
     if (!room) { socket.emit('error-msg', 'Oda bulunamadı'); return; }
-    if (room.members.length >= room.maxMembers) { socket.emit('error-msg', 'Oda dolu! (' + room.maxMembers + '/' + room.maxMembers + ')'); return; }
-    if (room.isPrivate) {
-      if (!password) { socket.emit('error-msg', 'Şifre gerekli'); return; }
-      if (room.password !== password) { socket.emit('error-msg', 'Yanlış şifre!'); return; }
+    if (room.members.length >= room.maxMembers) { socket.emit('error-msg', 'Oda dolu!'); return; }
+    if (room.isPrivate && password !== room.password) { socket.emit('error-msg', !password ? 'Şifre gerekli' : 'Yanlış şifre!'); return; }
+    // Ban kontrolü
+    if (bans[code] && bans[code][username] && bans[code][username] > Date.now()) {
+      const left = Math.ceil((bans[code][username] - Date.now()) / 60000);
+      socket.emit('error-msg', `${left} dakika boyunca banlısınız!`); return;
     }
-    room.members.push({ id: socket.id, username, isHost: false, muted: false });
+    room.members.push({ id: socket.id, username, isHost: false, isMod: false, muted: false, avatarColor: avatarColor || '#8b7cf8', usernameColor: usernameColor || '#8b7cf8' });
     socket.join(code);
     socket.roomCode = code;
     socket.username = username;
-    socket.emit('room-joined', {
-      code, name: room.name,
-      members: room.members,
-      video: room.video,
-      playing: room.playing,
-      currentTime: room.currentTime,
-      messages: room.messages
-    });
+    socket.emit('room-joined', { code, name: room.name, members: room.members, video: room.video, playing: room.playing, currentTime: room.currentTime, messages: room.messages, queue: room.queue });
     socket.to(code).emit('member-joined', { username, members: room.members });
     broadcastLobbies();
   });
 
   socket.on('load-video', ({ url }) => {
     const code = socket.roomCode;
-    if (!rooms[code] || rooms[code].host !== socket.id) return;
+    if (!rooms[code] || !isModOrHost(rooms[code], socket.id)) return;
     rooms[code].video = url;
     rooms[code].playing = true;
     rooms[code].currentTime = 0;
@@ -99,36 +97,59 @@ io.on('connection', (socket) => {
 
   socket.on('video-play', ({ currentTime }) => {
     const code = socket.roomCode;
-    if (!rooms[code] || rooms[code].host !== socket.id) return;
-    rooms[code].playing = true;
-    rooms[code].currentTime = currentTime;
-    rooms[code].lastUpdate = Date.now();
+    if (!rooms[code] || !isModOrHost(rooms[code], socket.id)) return;
+    rooms[code].playing = true; rooms[code].currentTime = currentTime; rooms[code].lastUpdate = Date.now();
     socket.to(code).emit('video-play', { currentTime });
   });
 
   socket.on('video-pause', ({ currentTime }) => {
     const code = socket.roomCode;
-    if (!rooms[code] || rooms[code].host !== socket.id) return;
-    rooms[code].playing = false;
-    rooms[code].currentTime = currentTime;
-    rooms[code].lastUpdate = Date.now();
+    if (!rooms[code] || !isModOrHost(rooms[code], socket.id)) return;
+    rooms[code].playing = false; rooms[code].currentTime = currentTime; rooms[code].lastUpdate = Date.now();
     socket.to(code).emit('video-pause', { currentTime });
   });
 
   socket.on('video-seek', ({ currentTime }) => {
     const code = socket.roomCode;
-    if (!rooms[code] || rooms[code].host !== socket.id) return;
-    rooms[code].currentTime = currentTime;
-    rooms[code].lastUpdate = Date.now();
+    if (!rooms[code] || !isModOrHost(rooms[code], socket.id)) return;
+    rooms[code].currentTime = currentTime; rooms[code].lastUpdate = Date.now();
     socket.to(code).emit('video-seek', { currentTime });
   });
 
+  // Kuyruk
+  socket.on('queue-add', ({ url }) => {
+    const code = socket.roomCode;
+    if (!rooms[code]) return;
+    rooms[code].queue.push({ url, addedBy: socket.username });
+    io.to(code).emit('queue-updated', { queue: rooms[code].queue });
+    io.to(code).emit('chat-msg', { id: Date.now(), username: '📋 Sistem', msg: socket.username + ' kuyruğa video ekledi', sys: true });
+  });
+
+  socket.on('queue-next', () => {
+    const code = socket.roomCode;
+    if (!rooms[code] || !isModOrHost(rooms[code], socket.id)) return;
+    if (rooms[code].queue.length === 0) { socket.emit('error-msg', 'Kuyruk boş!'); return; }
+    const next = rooms[code].queue.shift();
+    rooms[code].video = next.url;
+    rooms[code].playing = true;
+    rooms[code].currentTime = 0;
+    io.to(code).emit('video-loaded', { url: next.url });
+    io.to(code).emit('queue-updated', { queue: rooms[code].queue });
+  });
+
+  socket.on('queue-remove', ({ index }) => {
+    const code = socket.roomCode;
+    if (!rooms[code] || !isModOrHost(rooms[code], socket.id)) return;
+    rooms[code].queue.splice(index, 1);
+    io.to(code).emit('queue-updated', { queue: rooms[code].queue });
+  });
+
+  // Kick
   socket.on('kick-member', ({ targetId }) => {
     const code = socket.roomCode;
-    if (!rooms[code] || rooms[code].host !== socket.id) return;
-    if (targetId === socket.id) return;
+    if (!rooms[code] || !isModOrHost(rooms[code], socket.id)) return;
     const target = rooms[code].members.find(m => m.id === targetId);
-    if (!target) return;
+    if (!target || target.isHost) return;
     rooms[code].members = rooms[code].members.filter(m => m.id !== targetId);
     io.to(targetId).emit('kicked');
     io.to(code).emit('member-left', { username: target.username, members: rooms[code].members });
@@ -136,21 +157,47 @@ io.on('connection', (socket) => {
     broadcastLobbies();
   });
 
+  // Ban
+  socket.on('ban-member', ({ targetId, duration }) => {
+    const code = socket.roomCode;
+    if (!rooms[code] || !isModOrHost(rooms[code], socket.id)) return;
+    const target = rooms[code].members.find(m => m.id === targetId);
+    if (!target || target.isHost) return;
+    const banUntil = Date.now() + duration * 60 * 1000;
+    if (!bans[code]) bans[code] = {};
+    bans[code][target.username] = banUntil;
+    rooms[code].members = rooms[code].members.filter(m => m.id !== targetId);
+    io.to(targetId).emit('banned', { duration });
+    io.to(code).emit('member-left', { username: target.username, members: rooms[code].members });
+    io.to(code).emit('chat-msg', { id: Date.now(), username: '🚫 Sistem', msg: `${target.username} ${duration} dakika banlandı`, sys: true });
+    broadcastLobbies();
+  });
+
+  // Mute
   socket.on('mute-member', ({ targetId }) => {
     const code = socket.roomCode;
-    if (!rooms[code] || rooms[code].host !== socket.id) return;
+    if (!rooms[code] || !isModOrHost(rooms[code], socket.id)) return;
     const target = rooms[code].members.find(m => m.id === targetId);
     if (!target) return;
     target.muted = !target.muted;
     io.to(targetId).emit('muted', { muted: target.muted });
     io.to(code).emit('member-updated', { members: rooms[code].members });
-    io.to(code).emit('chat-msg', {
-      id: Date.now(), username: '🔇 Sistem',
-      msg: target.username + (target.muted ? ' susturuldu' : ' sesi açıldı'),
-      sys: true
-    });
+    io.to(code).emit('chat-msg', { id: Date.now(), username: '🔇 Sistem', msg: target.username + (target.muted ? ' susturuldu' : ' sesi açıldı'), sys: true });
   });
 
+  // Mod ata
+  socket.on('set-mod', ({ targetId }) => {
+    const code = socket.roomCode;
+    if (!rooms[code] || rooms[code].host !== socket.id) return;
+    const target = rooms[code].members.find(m => m.id === targetId);
+    if (!target) return;
+    target.isMod = !target.isMod;
+    io.to(targetId).emit('mod-status', { isMod: target.isMod });
+    io.to(code).emit('member-updated', { members: rooms[code].members });
+    io.to(code).emit('chat-msg', { id: Date.now(), username: '🛡️ Sistem', msg: target.username + (target.isMod ? ' moderatör oldu' : ' moderatörlükten alındı'), sys: true });
+  });
+
+  // Host devret
   socket.on('transfer-host', ({ targetId }) => {
     const code = socket.roomCode;
     if (!rooms[code] || rooms[code].host !== socket.id) return;
@@ -165,32 +212,101 @@ io.on('connection', (socket) => {
     broadcastLobbies();
   });
 
+  // Mesaj sil
   socket.on('delete-msg', ({ msgId }) => {
     const code = socket.roomCode;
-    if (!rooms[code] || rooms[code].host !== socket.id) return;
+    if (!rooms[code] || !isModOrHost(rooms[code], socket.id)) return;
     rooms[code].messages = rooms[code].messages.filter(m => m.id !== msgId);
     io.to(code).emit('msg-deleted', { msgId });
   });
 
+  // Reaksiyon
+  socket.on('react-msg', ({ msgId, emoji }) => {
+    const code = socket.roomCode;
+    if (!rooms[code]) return;
+    io.to(code).emit('msg-reaction', { msgId, emoji, username: socket.username });
+  });
+
+  // Yazıyor
+  socket.on('typing', () => {
+    const code = socket.roomCode;
+    if (!rooms[code]) return;
+    socket.to(code).emit('user-typing', { username: socket.username });
+  });
+
+  // Chat mesajı
   socket.on('chat-msg', ({ msg }) => {
     const code = socket.roomCode;
     if (!rooms[code]) return;
     const member = rooms[code].members.find(m => m.id === socket.id);
-    if (member && member.muted) {
-      socket.emit('error-msg', 'Susturuldunuz, mesaj gönderemezsiniz');
-      return;
-    }
-    const message = { id: Date.now() + Math.random(), username: socket.username, msg };
+    if (member && member.muted) { socket.emit('error-msg', 'Susturuldunuz!'); return; }
+    const message = { id: Date.now() + Math.random(), username: socket.username, msg, reactions: {} };
     rooms[code].messages.push(message);
     if (rooms[code].messages.length > 100) rooms[code].messages.shift();
     io.to(code).emit('chat-msg', message);
+  });
+
+  // Oyun
+  socket.on('game-start', () => {
+    const code = socket.roomCode;
+    if (!rooms[code] || !isModOrHost(rooms[code], socket.id)) return;
+    const word = WORDS[Math.floor(Math.random() * WORDS.length)];
+    rooms[code].game = { word, hints: Math.floor(word.length / 2), guesses: [], active: true, startTime: Date.now() };
+    const masked = '_ '.repeat(word.length).trim();
+    io.to(code).emit('game-started', { masked, length: word.length, hints: rooms[code].game.hints });
+    io.to(code).emit('chat-msg', { id: Date.now(), username: '🎮 Oyun', msg: `Kelime tahmin oyunu başladı! ${word.length} harfli bir kelime. İpucu hakkı: ${rooms[code].game.hints}`, sys: true });
+  });
+
+  socket.on('game-guess', ({ guess }) => {
+    const code = socket.roomCode;
+    if (!rooms[code] || !rooms[code].game || !rooms[code].game.active) return;
+    const game = rooms[code].game;
+    guess = guess.toLowerCase().trim();
+    if (game.guesses.includes(guess)) { socket.emit('error-msg', 'Bu kelimeyi zaten denediniz!'); return; }
+    game.guesses.push(guess);
+    if (guess === game.word) {
+      game.active = false;
+      io.to(code).emit('game-won', { winner: socket.username, word: game.word });
+      io.to(code).emit('chat-msg', { id: Date.now(), username: '🎮 Oyun', msg: `🎉 ${socket.username} kazandı! Kelime: ${game.word}`, sys: true });
+    } else {
+      io.to(code).emit('chat-msg', { id: Date.now(), username: '🎮 Oyun', msg: `${socket.username} "${guess}" denedi — yanlış!`, sys: true });
+    }
+  });
+
+  socket.on('game-hint', () => {
+    const code = socket.roomCode;
+    if (!rooms[code] || !rooms[code].game || !rooms[code].game.active) return;
+    const game = rooms[code].game;
+    if (game.hints <= 0) { socket.emit('error-msg', 'İpucu hakkı kalmadı!'); return; }
+    game.hints--;
+    const word = game.word;
+    const unrevealedIdx = [...Array(word.length).keys()].filter(i => !game.guesses.some(g => g === word || g[0] === word[i]));
+    if (unrevealedIdx.length > 0) {
+      const idx = unrevealedIdx[Math.floor(Math.random() * unrevealedIdx.length)];
+      const hint = word[idx];
+      game.guesses.push(hint);
+      io.to(code).emit('chat-msg', { id: Date.now(), username: '💡 İpucu', msg: `${idx + 1}. harf: "${hint.toUpperCase()}"`, sys: true });
+      const masked = word.split('').map(c => game.guesses.includes(c) ? c : '_').join(' ');
+      io.to(code).emit('game-update', { masked, hints: game.hints });
+    }
+  });
+
+  socket.on('game-stop', () => {
+    const code = socket.roomCode;
+    if (!rooms[code] || !isModOrHost(rooms[code], socket.id)) return;
+    if (rooms[code].game) {
+      const word = rooms[code].game.word;
+      rooms[code].game = null;
+      io.to(code).emit('game-ended', { word });
+      io.to(code).emit('chat-msg', { id: Date.now(), username: '🎮 Oyun', msg: `Oyun bitti. Kelime: ${word}`, sys: true });
+    }
   });
 
   socket.on('disconnect', () => {
     const code = socket.roomCode;
     if (!code || !rooms[code]) return;
     rooms[code].members = rooms[code].members.filter(m => m.id !== socket.id);
-    if (rooms[code].members.length === 0) { delete rooms[code]; broadcastLobbies(); return; }
+    if (rooms[code].members.length === 0) { delete rooms[code]; delete bans[code]; broadcastLobbies(); return; }
     if (rooms[code].host === socket.id) {
       const newHost = rooms[code].members[0];
       rooms[code].host = newHost.id;
@@ -201,7 +317,6 @@ io.on('connection', (socket) => {
     io.to(code).emit('member-left', { username: socket.username, members: rooms[code].members });
     broadcastLobbies();
   });
-
 });
 
 const PORT = process.env.PORT || 3000;
