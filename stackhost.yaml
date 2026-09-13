@@ -1,5 +1,6 @@
 runtime:
   name: nodejs
+  image: node:18
 
 build:
   commands:
