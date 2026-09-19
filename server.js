@@ -38,7 +38,6 @@ function broadcastLobbies() { io.emit('lobbies', getAllRooms()); }
 function broadcastOnline() {
   io.emit('online-users', Object.entries(onlineUsers).map(([id, u]) => ({ id, username: u.username })));
 }
-
 function isModOrHost(room, socketId) {
   const m = room.members.find(m => m.id === socketId);
   return m && (m.isHost || m.isMod);
@@ -59,15 +58,24 @@ io.on('connection', (socket) => {
     socket.emit('online-users', Object.entries(onlineUsers).map(([id, u]) => ({ id, username: u.username })));
   });
 
+  socket.on('send-friend-request', ({ toId }) => {
+    const target = onlineUsers[toId];
+    if (!target) { socket.emit('friend-request-result', { success: false, msg: 'Kullanıcı çevrimiçi değil' }); return; }
+    if (toId === socket.userId) { socket.emit('friend-request-result', { success: false, msg: 'Kendinize istek gönderemezsiniz' }); return; }
+    io.to(target.socketId).emit('friend-request-incoming', { fromId: socket.userId, fromUsername: socket.username });
+    socket.emit('friend-request-result', { success: true, msg: 'İstek gönderildi!' });
+  });
+
+  socket.on('friend-request-response', ({ fromId, accepted }) => {
+    const sender = onlineUsers[fromId];
+    if (!sender) return;
+    io.to(sender.socketId).emit('friend-request-answered', { fromId: socket.userId, fromUsername: socket.username, accepted });
+  });
+
   socket.on('invite-friend', ({ friendId, roomCode, roomName }) => {
     const friend = onlineUsers[friendId];
     if (!friend) { socket.emit('error-msg', 'Arkadaşın şu an çevrimiçi değil'); return; }
-    io.to(friend.socketId).emit('room-invite', {
-      from: socket.username,
-      fromId: socket.userId,
-      roomCode,
-      roomName
-    });
+    io.to(friend.socketId).emit('room-invite', { from: socket.username, fromId: socket.userId, roomCode, roomName });
   });
 
   socket.on('get-lobbies', () => { socket.emit('lobbies', getAllRooms()); });
@@ -81,13 +89,10 @@ io.on('connection', (socket) => {
       isPrivate: !!isPrivate, password: isPrivate ? (password || '') : '',
       name: name || (username + "'in odası"),
       maxMembers: maxMembers || 10,
-      messages: [], queue: [], game: null,
-      pinnedMsg: null, locked: false
+      messages: [], queue: [], game: null, pinnedMsg: null, locked: false
     };
     bans[code] = {};
-    socket.join(code);
-    socket.roomCode = code;
-    socket.username = username;
+    socket.join(code); socket.roomCode = code; socket.username = username;
     socket.emit('room-created', { code, members: rooms[code].members, name: rooms[code].name, pinnedMsg: null, locked: false });
     broadcastLobbies();
   });
@@ -104,9 +109,7 @@ io.on('connection', (socket) => {
       socket.emit('error-msg', `${left} dakika banlısınız!`); return;
     }
     room.members.push({ id: socket.id, username, isHost: false, isMod: false, muted: false, avatarColor: avatarColor || '#8b7cf8', usernameColor: usernameColor || '#8b7cf8' });
-    socket.join(code);
-    socket.roomCode = code;
-    socket.username = username;
+    socket.join(code); socket.roomCode = code; socket.username = username;
     socket.emit('room-joined', { code, name: room.name, members: room.members, video: room.video, playing: room.playing, currentTime: room.currentTime, messages: room.messages, queue: room.queue, pinnedMsg: room.pinnedMsg, locked: room.locked });
     socket.to(code).emit('member-joined', { username, members: room.members });
     broadcastLobbies();
