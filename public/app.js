@@ -25,50 +25,108 @@ const BG_PRESETS = [
 // ——— STATE ———
 let state = { username:'',roomCode:'',isHost:false,isMod:false,isMuted:false,avatarColor:COLORS[0],usernameColor:COLORS[0] };
 let mp4Syncing=false, pendingJoin=null, privateMode=false, typingTimer=null, settingsOpen=false, roomLocked=false;
-let onlineUsersList=[], pendingInvite=null;
+let onlineUsersList=[], pendingInvite=null, incomingRequests=[];
 
 // ——— KULLANICI KİMLİĞİ ———
-function genUserId() { return 'wp_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
+function genUserId() { return Math.random().toString(36).slice(2,6).toUpperCase() + Math.random().toString(36).slice(2,6).toUpperCase(); }
+
 function getMyProfile() {
   let p = JSON.parse(localStorage.getItem('wp_profile') || 'null');
-  if (!p) { p = {id:genUserId(),username:'',avatarColor:COLORS[0],usernameColor:COLORS[0]}; localStorage.setItem('wp_profile',JSON.stringify(p)); }
+  if (!p) { p = {id: genUserId(), username:'', avatarColor:COLORS[0], usernameColor:COLORS[0]}; localStorage.setItem('wp_profile', JSON.stringify(p)); }
   return p;
 }
+
 function saveMyProfile(updates) {
-  const p = getMyProfile(); Object.assign(p, updates); localStorage.setItem('wp_profile',JSON.stringify(p)); return p;
+  const p = getMyProfile(); Object.assign(p, updates); localStorage.setItem('wp_profile', JSON.stringify(p)); return p;
 }
 
 // ——— ARKADAŞLAR ———
-function getFriends() { return JSON.parse(localStorage.getItem('wp_friends')||'[]'); }
-function saveFriends(f) { localStorage.setItem('wp_friends',JSON.stringify(f)); }
+function getFriends() { return JSON.parse(localStorage.getItem('wp_friends') || '[]'); }
+function saveFriends(f) { localStorage.setItem('wp_friends', JSON.stringify(f)); }
 
 function initProfile() {
   const p = getMyProfile();
   document.getElementById('my-user-id').textContent = p.id;
+  if (p.username) document.getElementById('profile-username').value = p.username;
+  renderFriends();
+}
+
+function saveUsername() {
+  const u = document.getElementById('profile-username').value.trim();
+  if (!u) { showToast('İsim boş olamaz!'); return; }
+  saveMyProfile({ username: u });
+  const prof = getMyProfile();
+  socket.emit('register-user', { userId: prof.id, username: u });
+  showToast('✓ İsim kaydedildi: ' + u);
   renderFriends();
 }
 
 function copyMyId() {
   const p = getMyProfile();
-  if (navigator.clipboard) navigator.clipboard.writeText(p.id).catch(()=>{});
-  showToast('✓ ID kopyalandı!');
+  if (navigator.clipboard) navigator.clipboard.writeText(p.id).catch(() => {});
+  showToast('✓ ID kopyalandı: ' + p.id);
 }
 
-function addFriend() {
+function sendFriendRequest() {
   const input = document.getElementById('friend-id-input');
-  const id = input.value.trim();
+  const inputId = input.value.trim().toUpperCase();
+  if (!inputId) { showFriendErr('ID boş olamaz'); return; }
+  if (inputId.length !== 8) { showFriendErr('ID 8 karakter olmalı'); return; }
+
   const p = getMyProfile();
-  if (!id) { showFriendErr('ID boş olamaz'); return; }
-  if (id === p.id) { showFriendErr('Kendinizi ekleyemezsiniz'); return; }
+  if (inputId === p.id) { showFriendErr('Kendinize istek gönderemezsiniz'); return; }
+
   const friends = getFriends();
-  if (friends.find(f => f.id === id)) { showFriendErr('Bu kişi zaten listede'); return; }
-  const online = onlineUsersList.find(u => u.id === id);
-  friends.push({ id, username: online ? online.username : '?', addedAt: Date.now() });
-  saveFriends(friends);
+  if (friends.find(f => f.id === inputId)) { showFriendErr('Zaten arkadaşsınız'); return; }
+
+  // Online listede bul
+  const target = onlineUsersList.find(u => u.id === inputId);
+  if (!target) { showFriendErr('Kullanıcı bulunamadı veya çevrimdışı'); return; }
+
+  socket.emit('send-friend-request', { toId: inputId });
   input.value = '';
   showFriendErr('');
-  renderFriends();
-  showToast('✓ Arkadaş eklendi!');
+}
+
+function renderIncomingRequests() {
+  const section = document.getElementById('incoming-requests-section');
+  const list = document.getElementById('incoming-requests');
+  const count = document.getElementById('req-count');
+  if (!list) return;
+  count.textContent = incomingRequests.length;
+  section.style.display = incomingRequests.length > 0 ? 'block' : 'none';
+  list.innerHTML = '';
+  incomingRequests.forEach(req => {
+    const div = document.createElement('div');
+    div.className = 'req-item';
+    div.innerHTML = `
+      <div class="friend-avatar" style="background:${COLORS[req.fromId.charCodeAt(0) % COLORS.length]}">${(req.fromUsername||'?').slice(0,2).toUpperCase()}</div>
+      <div style="flex:1;min-width:0">
+        <div class="req-name">${esc(req.fromUsername || 'Bilinmiyor')}</div>
+        <div class="friend-id-text">${req.fromId}</div>
+      </div>
+      <button class="btn-req-accept" onclick="answerFriendRequest('${req.fromId}','${esc(req.fromUsername)}',true)">✓ Kabul</button>
+      <button class="btn-req-decline" onclick="answerFriendRequest('${req.fromId}','${esc(req.fromUsername)}',false)">✕</button>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function answerFriendRequest(fromId, fromUsername, accepted) {
+  socket.emit('friend-request-response', { fromId, accepted });
+  incomingRequests = incomingRequests.filter(r => r.fromId !== fromId);
+  if (accepted) {
+    const friends = getFriends();
+    if (!friends.find(f => f.id === fromId)) {
+      friends.push({ id: fromId, username: fromUsername, addedAt: Date.now() });
+      saveFriends(friends);
+      showToast('🎉 ' + fromUsername + ' arkadaş olarak eklendi!');
+      renderFriends();
+    }
+  } else {
+    showToast('İstek reddedildi');
+  }
+  renderIncomingRequests();
 }
 
 function removeFriend(id) {
@@ -84,14 +142,14 @@ function renderFriends() {
   if (count) count.textContent = friends.length;
   if (!list) return;
   if (friends.length === 0) {
-    list.innerHTML = '<div class="friends-empty">Henüz arkadaşın yok 👀<br/>ID\'ni paylaş, eklensin!</div>';
+    list.innerHTML = '<div class="friends-empty">Henüz arkadaşın yok 👀<br/>Kodunu paylaş, eklensin!</div>';
     return;
   }
   list.innerHTML = '';
   friends.forEach(f => {
     const isOnline = onlineUsersList.find(u => u.id === f.id);
-    const displayName = isOnline ? isOnline.username : (f.username !== '?' ? f.username : 'Bilinmiyor');
-    const color = COLORS[Math.abs((f.id.charCodeAt(3)||0)) % COLORS.length];
+    const displayName = isOnline ? isOnline.username : (f.username && f.username !== '?' ? f.username : 'Çevrimdışı');
+    const color = COLORS[f.id.charCodeAt(0) % COLORS.length];
     const div = document.createElement('div');
     div.className = 'friend-item';
     div.innerHTML = `
@@ -132,16 +190,13 @@ function acceptInvite() {
   if (!pendingInvite) return;
   const code = pendingInvite.roomCode;
   declineInvite();
-  const u = state.username || document.getElementById('home-username').value.trim() || document.getElementById('join-username').value.trim();
-  if (!u) { showToast('Önce kullanıcı adı gir!'); return; }
+  const u = state.username || getMyProfile().username || '';
+  if (!u) { showToast('Önce kullanıcı adı belirle!'); return; }
   state.username = u;
   pendingJoin = { code, username: u };
   socket.emit('join-room', { code, username: u, password: '', avatarColor: state.avatarColor, usernameColor: state.usernameColor });
 }
-function declineInvite() {
-  pendingInvite = null;
-  document.getElementById('invite-toast').classList.remove('show');
-}
+function declineInvite() { pendingInvite = null; document.getElementById('invite-toast').classList.remove('show'); }
 
 // ——— TEMA ———
 function initThemes() {
@@ -156,12 +211,7 @@ function initThemes() {
     row.appendChild(btn);
   });
 }
-function applyTheme(t) {
-  document.documentElement.style.setProperty('--accent',t.accent);
-  document.documentElement.style.setProperty('--accent-dark',t.dark);
-  document.documentElement.style.setProperty('--bg',t.bg);
-  document.body.style.background=t.bg;
-}
+function applyTheme(t) { document.documentElement.style.setProperty('--accent',t.accent); document.documentElement.style.setProperty('--accent-dark',t.dark); document.documentElement.style.setProperty('--bg',t.bg); document.body.style.background=t.bg; }
 function hexRgb(hex) { return `${parseInt(hex.slice(1,3),16)},${parseInt(hex.slice(3,5),16)},${parseInt(hex.slice(5,7),16)}`; }
 
 // ——— ARKA PLAN ———
@@ -193,7 +243,7 @@ function initColors() {
   });
 }
 
-// BAŞLAT
+// ——— BAŞLAT ———
 initThemes(); initColors(); initProfile();
 
 function togglePrivate() { privateMode=!privateMode; document.getElementById('toggle-private').classList.toggle('on',privateMode); }
@@ -205,6 +255,22 @@ socket.on('online-users', (users) => {
   friends.forEach(f => { const o=users.find(u=>u.id===f.id); if(o&&o.username!==f.username){f.username=o.username;changed=true;} });
   if(changed) saveFriends(friends);
   renderFriends();
+});
+
+socket.on('friend-request-incoming', ({ fromId, fromUsername }) => {
+  incomingRequests.push({ fromId, fromUsername });
+  renderIncomingRequests();
+  showToast(`📨 ${fromUsername} arkadaşlık isteği gönderdi!`);
+});
+
+socket.on('friend-request-result', ({ success, msg }) => {
+  if (success) showToast('✓ ' + msg);
+  else showFriendErr(msg);
+});
+
+socket.on('friend-request-answered', ({ fromUsername, accepted }) => {
+  if (accepted) { showToast(`🎉 ${fromUsername} isteğini kabul etti!`); renderFriends(); }
+  else { showToast(`${fromUsername} isteğini reddetti`); }
 });
 
 socket.on('room-invite', (data) => { showInviteToast(data); });
@@ -246,9 +312,8 @@ function refreshLobbies() {
 }
 
 function joinLobby(code, isPrivate) {
-  const u=document.getElementById('join-username').value.trim()||document.getElementById('home-username').value.trim();
-  if(!u){showErr('err-username',true);return;}
-  showErr('err-username',false);
+  const u = getMyProfile().username || document.getElementById('home-username').value.trim() || document.getElementById('join-username').value.trim();
+  if(!u){showToast('Önce kullanıcı adını belirle!');return;}
   state.username=u;
   pendingJoin={code,username:u};
   if(isPrivate) openModal(code);
@@ -256,7 +321,7 @@ function joinLobby(code, isPrivate) {
 }
 
 function createRoom() {
-  const u=document.getElementById('home-username').value.trim();
+  const u = document.getElementById('home-username').value.trim() || getMyProfile().username;
   if(!u){showErr('err-username',true);return;}
   showErr('err-username',false);
   state.username=u;
@@ -270,7 +335,7 @@ function createRoom() {
 }
 
 function joinByCode() {
-  const u=document.getElementById('join-username').value.trim()||document.getElementById('home-username').value.trim();
+  const u=document.getElementById('join-username').value.trim()||document.getElementById('home-username').value.trim()||getMyProfile().username;
   const c=document.getElementById('home-code').value.trim().toUpperCase();
   if(!u){showErr('err-username',true);return;}
   if(c.length!==6){showErr('err-code',true);return;}
@@ -338,32 +403,14 @@ socket.on('you-are-host',()=>{
   document.getElementById('btn-game-start-wrap').innerHTML='<button class="btn-game-start" onclick="startGame()">🎮 Oyun</button>';
   showToast('👑 Artık oda sahibisin!');
 });
-socket.on('mod-status',({isMod})=>{
-  state.isMod=isMod;
-  document.getElementById('badge-mod').style.display=isMod?'inline-flex':'none';
-  showToast(isMod?'🛡️ Moderatör oldunuz!':'Moderatörlükten alındınız');
-});
-socket.on('muted',({muted})=>{
-  state.isMuted=muted;
-  document.getElementById('badge-muted').style.display=muted?'inline-flex':'none';
-  document.getElementById('muted-bar').classList.toggle('show',muted);
-  document.getElementById('chat-input').disabled=muted;
-  showToast(muted?'🔇 Susturuldunuz':'🔊 Sesiniz açıldı');
-});
+socket.on('mod-status',({isMod})=>{state.isMod=isMod;document.getElementById('badge-mod').style.display=isMod?'inline-flex':'none';showToast(isMod?'🛡️ Moderatör oldunuz!':'Moderatörlükten alındınız');});
+socket.on('muted',({muted})=>{state.isMuted=muted;document.getElementById('badge-muted').style.display=muted?'inline-flex':'none';document.getElementById('muted-bar').classList.toggle('show',muted);document.getElementById('chat-input').disabled=muted;showToast(muted?'🔇 Susturuldunuz':'🔊 Sesiniz açıldı');});
 socket.on('banned',({duration})=>{showToast(`🚫 ${duration} dakika banlandınız!`);setTimeout(()=>location.reload(),2000);});
 socket.on('kicked',()=>{showToast('❌ Oda sahibi tarafından atıldın!');setTimeout(()=>location.reload(),2000);});
 socket.on('room-name-updated',({name})=>{document.getElementById('room-name-badge').textContent=name;showToast('✏️ Oda adı: '+name);});
-socket.on('room-locked',({locked})=>{
-  roomLocked=locked;
-  const btn=document.getElementById('btn-lock');
-  if(btn){btn.textContent=locked?'🔐 Kilidi Aç':'🔓 Kilitle';btn.classList.toggle('active',locked);}
-  showToast(locked?'🔐 Oda kilitlendi':'🔓 Oda kilidi açıldı');
-});
+socket.on('room-locked',({locked})=>{roomLocked=locked;const btn=document.getElementById('btn-lock');if(btn){btn.textContent=locked?'🔐 Kilidi Aç':'🔓 Kilitle';btn.classList.toggle('active',locked);}showToast(locked?'🔐 Oda kilitlendi':'🔓 Oda kilidi açıldı');});
 socket.on('msg-pinned',({pinnedMsg})=>{if(pinnedMsg)showPinned(pinnedMsg);else hidePinned();});
-socket.on('video-loaded',({url})=>{
-  renderVideo(url);updateVideoTitle(url);
-  if(!state.isHost&&!state.isMod){document.getElementById('sync-text').textContent='Senkronize ✓';addMsg(null,'Video başlatıldı 🎬',true);}
-});
+socket.on('video-loaded',({url})=>{renderVideo(url);updateVideoTitle(url);if(!state.isHost&&!state.isMod){document.getElementById('sync-text').textContent='Senkronize ✓';addMsg(null,'Video başlatıldı 🎬',true);}});
 socket.on('video-play',({currentTime})=>{const mp4=document.getElementById('mp4-player');if(mp4.style.display!=='none'){mp4Syncing=true;mp4.currentTime=currentTime;mp4.play().finally(()=>{mp4Syncing=false;});}});
 socket.on('video-pause',({currentTime})=>{const mp4=document.getElementById('mp4-player');if(mp4.style.display!=='none'){mp4Syncing=true;mp4.currentTime=currentTime;mp4.pause();mp4Syncing=false;}});
 socket.on('video-seek',({currentTime})=>{const mp4=document.getElementById('mp4-player');if(mp4.style.display!=='none'){mp4Syncing=true;mp4.currentTime=currentTime;mp4Syncing=false;}});
@@ -378,18 +425,8 @@ socket.on('msg-reaction',({msgId,emoji,username})=>{
   if(!badge){badge=document.createElement('span');badge.className='reaction-badge';badge.setAttribute('data-emoji',emoji);badge.innerHTML=`${emoji} <span class="react-count">1</span>`;badge.title=username;el.appendChild(badge);}
   else{badge.querySelector('.react-count').textContent=parseInt(badge.querySelector('.react-count').textContent)+1;badge.title+=', '+username;}
 });
-socket.on('user-typing',({username})=>{
-  const el=document.getElementById('typing-indicator');
-  el.textContent=username+' yazıyor...';clearTimeout(el._timer);
-  el._timer=setTimeout(()=>{el.textContent='';},2500);
-});
-socket.on('game-started',({masked,length,hints})=>{
-  document.getElementById('game-section').classList.add('show');
-  document.getElementById('game-word').textContent=masked;
-  document.getElementById('game-info').textContent=`${length} harfli · ${hints} ipucu`;
-  document.getElementById('btn-hint').textContent=`💡 (${hints})`;
-  if(state.isHost)document.getElementById('btn-game-stop').style.display='inline-flex';
-});
+socket.on('user-typing',({username})=>{const el=document.getElementById('typing-indicator');el.textContent=username+' yazıyor...';clearTimeout(el._timer);el._timer=setTimeout(()=>{el.textContent='';},2500);});
+socket.on('game-started',({masked,length,hints})=>{document.getElementById('game-section').classList.add('show');document.getElementById('game-word').textContent=masked;document.getElementById('game-info').textContent=`${length} harfli · ${hints} ipucu`;document.getElementById('btn-hint').textContent=`💡 (${hints})`;if(state.isHost)document.getElementById('btn-game-stop').style.display='inline-flex';});
 socket.on('game-update',({masked,hints})=>{document.getElementById('game-word').textContent=masked;document.getElementById('btn-hint').textContent=`💡 (${hints})`;});
 socket.on('game-won',({winner,word})=>{document.getElementById('game-word').textContent=word.toUpperCase();document.getElementById('game-info').textContent=`🎉 ${winner} kazandı!`;setTimeout(()=>document.getElementById('game-section').classList.remove('show'),4000);});
 socket.on('game-ended',()=>{document.getElementById('game-section').classList.remove('show');});
@@ -415,7 +452,6 @@ function enterRoom(members,name) {
     document.getElementById('btn-game-start-wrap').innerHTML='<button class="btn-game-start" onclick="startGame()">🎮 Oyun</button>';
     updateLockBtn();
   }
-  // Profili güncelle
   saveMyProfile({username:state.username});
   const prof=getMyProfile();
   socket.emit('register-user',{userId:prof.id,username:state.username});
@@ -424,32 +460,17 @@ function enterRoom(members,name) {
   addMsg(null,'Odaya katıldın 🎉 Kod: '+state.roomCode,true);
 }
 
-function updateLockBtn() {
-  const btn=document.getElementById('btn-lock');
-  if(btn){btn.textContent=roomLocked?'🔐 Kilidi Aç':'🔓 Kilitle';btn.classList.toggle('active',roomLocked);}
-}
-
-function toggleSettings() {
-  if(!state.isHost) return;
-  settingsOpen=!settingsOpen;
-  document.getElementById('room-settings-panel').classList.toggle('show',settingsOpen);
-  initBgPresets();
-}
+function updateLockBtn(){const btn=document.getElementById('btn-lock');if(btn){btn.textContent=roomLocked?'🔐 Kilidi Aç':'🔓 Kilitle';btn.classList.toggle('active',roomLocked);}}
+function toggleSettings(){if(!state.isHost)return;settingsOpen=!settingsOpen;document.getElementById('room-settings-panel').classList.toggle('show',settingsOpen);initBgPresets();}
 function updateRoomName(){const n=document.getElementById('new-room-name').value.trim();if(!n)return;socket.emit('update-room-name',{name:n});document.getElementById('new-room-name').value='';}
 function updateRoomPassword(){const p=document.getElementById('new-room-password').value;socket.emit('update-room-password',{password:p});document.getElementById('new-room-password').value='';showToast(p?'🔑 Şifre güncellendi':'🔓 Şifre kaldırıldı');}
 function toggleLock(){socket.emit('toggle-lock');}
-
-function showPinned(p) {
-  document.getElementById('pinned-msg').classList.add('show');
-  document.getElementById('pinned-text').textContent=p.text;
-  document.getElementById('pinned-who').textContent=p.username+' tarafından sabitlendi';
-  document.getElementById('btn-unpin').style.display=(state.isHost||state.isMod)?'block':'none';
-}
+function showPinned(p){document.getElementById('pinned-msg').classList.add('show');document.getElementById('pinned-text').textContent=p.text;document.getElementById('pinned-who').textContent=p.username+' tarafından sabitlendi';document.getElementById('btn-unpin').style.display=(state.isHost||state.isMod)?'block':'none';}
 function hidePinned(){document.getElementById('pinned-msg').classList.remove('show');}
 function unpinMsg(){socket.emit('pin-msg',{msgId:null,text:null,username:null});}
 function pinMsg(msgId,text,username){socket.emit('pin-msg',{msgId,text,username});}
 
-function renderMembers(members) {
+function renderMembers(members){
   document.getElementById('member-count').textContent=members.length;
   const el=document.getElementById('members-list');el.innerHTML='';
   members.forEach(m=>{
@@ -469,10 +490,7 @@ function renderMembers(members) {
       ${canManage?`
         <div class="member-actions">
           <button class="action-btn mute" onclick="muteMember('${m.id}')">${m.muted?'🔊':'🔇'}</button>
-          ${state.isHost?`
-            <button class="action-btn mod" onclick="setMod('${m.id}')">${m.isMod?'🛡-':'🛡+'}</button>
-            <button class="action-btn transfer" onclick="transferHost('${m.id}','${esc(m.username)}')">👑</button>
-          `:''}
+          ${state.isHost?`<button class="action-btn mod" onclick="setMod('${m.id}')">${m.isMod?'🛡-':'🛡+'}</button><button class="action-btn transfer" onclick="transferHost('${m.id}','${esc(m.username)}')">👑</button>`:''}
           <div class="ban-menu">
             <button class="action-btn ban" onclick="toggleBanMenu('${m.id}')">🚫</button>
             <div class="ban-dropdown" id="ban-${m.id}">
@@ -527,11 +545,7 @@ function renderVideo(url){
   else if(type==='twitch'){yt.src=`https://player.twitch.tv/?channel=${getTwitchChannel(url)}&parent=${window.location.hostname}&autoplay=true`;yt.style.display='block';}
   else if(type==='mp4'){mp4El.src=url;mp4El.style.display='block';attachMp4Events(mp4El);}
 }
-function updateVideoTitle(url){
-  const bar=document.getElementById('video-title-bar');const type=detectType(url);
-  const titles={youtube:'▶ YouTube',kick:'🟢 Kick: '+getKickChannel(url),twitch:'🟣 Twitch: '+getTwitchChannel(url),mp4:'🎬 '+url.split('/').pop().split('?')[0]};
-  bar.textContent=titles[type]||'';bar.classList.toggle('show',!!titles[type]);
-}
+function updateVideoTitle(url){const bar=document.getElementById('video-title-bar');const type=detectType(url);const titles={youtube:'▶ YouTube',kick:'🟢 Kick: '+getKickChannel(url),twitch:'🟣 Twitch: '+getTwitchChannel(url),mp4:'🎬 '+url.split('/').pop().split('?')[0]};bar.textContent=titles[type]||'';bar.classList.toggle('show',!!titles[type]);}
 function toggleFullscreen(){const w=document.querySelector('.video-wrapper');if(!document.fullscreenElement){w.requestFullscreen?.();document.getElementById('fullscreen-btn').textContent='✕';}else{document.exitFullscreen?.();document.getElementById('fullscreen-btn').textContent='⛶';}}
 function attachMp4Events(mp4){
   if(mp4._eventsAttached)return;mp4._eventsAttached=true;
