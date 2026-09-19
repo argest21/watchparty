@@ -17,6 +17,8 @@
     }
     body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background .3s}
     .screen{display:none!important}.screen.active{display:flex!important}
+
+    /* NAVBAR */
     .navbar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:rgba(17,17,24,0.95);border-bottom:1px solid var(--border2);position:fixed;top:0;left:0;right:0;z-index:200;backdrop-filter:blur(12px)}
     .nav-logo{font-size:20px;font-weight:700;letter-spacing:-.5px;color:var(--text);text-decoration:none}
     .nav-logo span{color:var(--accent)}
@@ -24,6 +26,8 @@
     .nav-link{padding:7px 16px;border-radius:var(--r);font-size:13px;font-weight:600;color:var(--muted);text-decoration:none;transition:all .2s}
     .nav-link:hover{background:var(--surface2);color:var(--text)}
     .nav-link.active{background:rgba(139,124,248,0.15);color:var(--accent)}
+
+    /* HOME */
     #screen-home{min-height:100vh;flex-direction:column;align-items:center;padding:6rem 2rem 3rem;position:relative;overflow-x:hidden}
     .bg-glow{position:fixed;top:-300px;left:50%;transform:translateX(-50%);width:900px;height:700px;background:radial-gradient(ellipse,rgba(139,124,248,0.18) 0%,transparent 65%);pointer-events:none;z-index:0}
     .home-wrap{position:relative;z-index:1;width:100%;max-width:1200px;display:flex;flex-direction:column;align-items:center;gap:2rem}
@@ -86,20 +90,20 @@
 
     /* ARKADAŞ PANELİ */
     .my-id-box{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r)}
-    .my-id-val{flex:1;font-family:monospace;font-size:12px;color:var(--accent);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .my-id-val{flex:1;font-family:monospace;font-size:16px;color:var(--accent);font-weight:700;letter-spacing:.15em}
     .btn-copy-id{padding:5px 12px;background:rgba(139,124,248,0.12);border:1px solid rgba(139,124,248,0.3);border-radius:8px;color:var(--accent);font-size:12px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0}
     .btn-copy-id:hover{background:rgba(139,124,248,0.25)}
     .add-friend-row{display:flex;gap:8px}
-    .add-friend-row input{flex:1;font-size:13px}
+    .add-friend-row input{flex:1}
     .btn-add-friend{padding:10px 16px;background:linear-gradient(135deg,var(--accent-dark),var(--accent));border:none;border-radius:var(--r);color:#fff;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;white-space:nowrap;transition:opacity .2s}
     .btn-add-friend:hover{opacity:.85}
-    .friends-list{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto}
+    .friends-list{display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto}
     .friend-item{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);transition:border-color .2s}
     .friend-item:hover{border-color:var(--border2)}
     .friend-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
     .friend-info{flex:1;min-width:0}
     .friend-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .friend-id-text{font-size:10px;color:var(--muted);font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .friend-id-text{font-size:10px;color:var(--muted);font-family:monospace;letter-spacing:.05em}
     .friend-status{width:8px;height:8px;border-radius:50%;flex-shrink:0}
     .friend-status.online{background:var(--green);box-shadow:0 0 6px var(--green)}
     .friend-status.offline{background:var(--muted)}
@@ -110,8 +114,12 @@
     .btn-friend-action.remove{background:rgba(255,95,87,0.08);border-color:rgba(255,95,87,0.2);color:var(--danger)}
     .btn-friend-action.remove:hover{background:rgba(255,95,87,0.18)}
     .friends-empty{font-size:13px;color:var(--muted);text-align:center;padding:1.5rem 0;line-height:1.6}
-
-    /* DAVET */
+    .req-item{display:flex;align-items:center;gap:8px;padding:9px 12px;background:rgba(245,200,66,0.06);border:1px solid rgba(245,200,66,0.2);border-radius:var(--r);margin-bottom:6px}
+    .req-name{flex:1;font-size:13px;font-weight:600}
+    .btn-req-accept{padding:4px 12px;background:rgba(74,222,128,0.12);border:1px solid rgba(74,222,128,0.3);border-radius:6px;color:var(--green);font-size:12px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:all .2s}
+    .btn-req-accept:hover{background:rgba(74,222,128,0.25)}
+    .btn-req-decline{padding:4px 10px;background:rgba(255,95,87,0.08);border:1px solid rgba(255,95,87,0.2);border-radius:6px;color:var(--danger);font-size:12px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:all .2s}
+    .btn-req-decline:hover{background:rgba(255,95,87,0.18)}
     .invite-toast{position:fixed;bottom:80px;right:24px;background:var(--surface);border:1px solid rgba(139,124,248,0.3);border-radius:var(--rl);padding:16px 20px;display:none;z-index:9999;box-shadow:0 8px 40px rgba(0,0,0,0.5);max-width:300px}
     .invite-toast.show{display:block}
     .invite-toast-title{font-size:14px;font-weight:700;margin-bottom:4px}
@@ -377,24 +385,39 @@
       <div class="home-card">
         <div class="card-title">👥 Arkadaşlar</div>
 
+        <div class="field">
+          <label>Kullanıcı Adın</label>
+          <div style="display:flex;gap:8px">
+            <input id="profile-username" type="text" placeholder="İsmini belirle..." maxlength="20"/>
+            <button class="btn-copy-id" onclick="saveUsername()" style="white-space:nowrap;flex-shrink:0">✓ Kaydet</button>
+          </div>
+        </div>
+
         <div>
           <div class="field" style="margin-bottom:8px">
             <label>Senin ID'n</label>
             <div class="my-id-box">
-              <span class="my-id-val" id="my-user-id">Yükleniyor...</span>
+              <span class="my-id-val" id="my-user-id">...</span>
               <button class="btn-copy-id" onclick="copyMyId()">📋 Kopyala</button>
             </div>
           </div>
-          <div style="font-size:11px;color:var(--muted);line-height:1.5">Bu ID'yi arkadaşlarına gönder, seni eklesinler 🔗</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5">Bu 8 haneli kodu arkadaşına gönder, seni eklesin 🔗</div>
         </div>
 
         <div class="field">
-          <label>Arkadaş Ekle</label>
+          <label>Arkadaşlık İsteği Gönder</label>
           <div class="add-friend-row">
-            <input id="friend-id-input" type="text" placeholder="Arkadaşının ID'sini yapıştır..." maxlength="40"/>
-            <button class="btn-add-friend" onclick="addFriend()">+ Ekle</button>
+            <input id="friend-id-input" type="text" placeholder="8 haneli ID..." maxlength="8" style="text-transform:uppercase;letter-spacing:.1em;font-family:monospace"/>
+            <button class="btn-add-friend" onclick="sendFriendRequest()">İstek Gönder</button>
           </div>
           <span class="err" id="err-friend"></span>
+        </div>
+
+        <div id="incoming-requests-section" style="display:none">
+          <div style="font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px">
+            📨 Gelen İstekler (<span id="req-count">0</span>)
+          </div>
+          <div id="incoming-requests"></div>
         </div>
 
         <div>
@@ -402,7 +425,7 @@
             Liste (<span id="friend-count">0</span>)
           </div>
           <div class="friends-list" id="friends-list">
-            <div class="friends-empty">Henüz arkadaşın yok 👀<br/>ID'ni paylaş, eklensin!</div>
+            <div class="friends-empty">Henüz arkadaşın yok 👀<br/>Kodunu paylaş, eklensin!</div>
           </div>
         </div>
       </div>
