@@ -28,7 +28,12 @@ let mp4Syncing=false, pendingJoin=null, privateMode=false, typingTimer=null, set
 let onlineUsersList=[], pendingInvite=null, incomingRequests=[];
 
 // ——— KULLANICI KİMLİĞİ ———
-function genUserId() { return Math.random().toString(36).slice(2,6).toUpperCase() + Math.random().toString(36).slice(2,6).toUpperCase(); }
+function genUserId() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let id = '';
+  for (let i = 0; i < 8; i++) id += chars[Math.floor(Math.random() * chars.length)];
+  return id;
+}
 
 function getMyProfile() {
   let p = JSON.parse(localStorage.getItem('wp_profile') || 'null');
