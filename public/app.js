@@ -37,7 +37,15 @@ function genUserId() {
 
 function getMyProfile() {
   let p = JSON.parse(localStorage.getItem('wp_profile') || 'null');
-  if (!p) { p = {id: genUserId(), username:'', avatarColor:COLORS[0], usernameColor:COLORS[0]}; localStorage.setItem('wp_profile', JSON.stringify(p)); }
+  if (!p) {
+    p = {id: genUserId(), username:'', avatarColor:COLORS[0], usernameColor:COLORS[0]};
+    localStorage.setItem('wp_profile', JSON.stringify(p));
+  }
+  // Eski uzun ID'yi otomatik kısalt
+  if (p.id.length > 8) {
+    p.id = genUserId();
+    localStorage.setItem('wp_profile', JSON.stringify(p));
+  }
   return p;
 }
 
